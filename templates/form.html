@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bus Fleet Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+        --bg:       #dce0e3;
+        --panel:    #c8cdd1;
+        --group-bg: #d4d8db;
+        --border:   #9aa0a6;
+        --dark:     #2b3036;
+        --accent:   #1a5fa8;
+        --text:     #1e2428;
+        --muted:    #596068;
+        --white:    #f5f7f8;
+        --grid-hdr: #3a4750;
+        --grid-row: #eaecee;
+        --grid-alt: #dde0e3;
+        --good:     #2e7d32;
+        --bad:      #c62828;
+    }
+    body {
+        font-family: 'Barlow', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .topbar {
+        background: var(--dark);
+        color: var(--white);
+        padding: 8px 18px;
+        font-size: 11px;
+        font-family: 'Source Code Pro', monospace;
+        letter-spacing: 0.08em;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.r { background: #e84c3d; }
+    .dot.g { background: #27ae60; }
+    .dot.b { background: var(--accent); }
+    .topbar-title { flex: 1; text-align: center; font-weight: 600; opacity: 0.8; }
+    .layout {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        padding: 14px;
+        gap: 14px;
+    }
+    .sidebar {
+        width: 265px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .group-box {
+        background: var(--group-bg);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        position: relative;
+        padding: 24px 16px 16px;
+    }
+    .group-box .legend {
+        position: absolute;
+        top: -10px; left: 12px;
+        background: var(--group-bg);
+        padding: 0 6px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+    }
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 4px;
+    }
+    .field select, .field input[type="number"] {
+        width: 100%;
+        padding: 6px 8px;
+        font-family: 'Barlow', sans-serif;
+        font-size: 13px;
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        color: var(--text);
+        appearance: none;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .field select:focus, .field input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(26,95,168,0.15);
+    }
+    .inline-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-enter {
+        display: block;
+        margin: 14px auto 0;
+        padding: 7px 28px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 2px;
+        font-family: 'Barlow', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .btn-enter:hover { background: #154e8e; }
+    .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .bus-header {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        padding: 0 4px 10px;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 10px;
+        flex-shrink: 0;
+    }
+    .bus-name {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--dark);
+    }
+    .bus-meta {
+        font-size: 10px;
+        font-family: 'Source Code Pro', monospace;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+    }
+    .grid-wrapper {
+        flex: 1;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        background: var(--white);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+        background: var(--grid-hdr);
+        color: #cdd5db;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 9px 10px;
+        text-align: left;
+        position: sticky;
+        top: 0;
+        white-space: nowrap;
+        border-right: 1px solid rgba(255,255,255,0.07);
+    }
+    tbody tr:nth-child(even) { background: var(--grid-alt); }
+    tbody tr:nth-child(odd)  { background: var(--grid-row); }
+    tbody tr:hover           { background: #c5daf5; }
+    tbody td {
+        padding: 7px 10px;
+        border-right: 1px solid rgba(0,0,0,0.06);
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        white-space: nowrap;
+        font-family: 'Source Code Pro', monospace;
+        font-size: 12px;
+    }
+    td.good { color: var(--good); font-weight: 600; }
+    td.bad  { color: var(--bad);  font-weight: 600; }
+    .empty-state {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+        color: var(--muted);
+        font-family: 'Source Code Pro', monospace;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+    }
+    .footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 4px 0;
+        flex-shrink: 0;
+    }
+    .btn-nav {
+        padding: 6px 20px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        font-family: 'Barlow', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        color: var(--dark);
+        transition: background 0.1s;
+    }
+    .btn-nav:hover:not(:disabled) { background: #bcc2c8; }
+    .btn-nav:disabled { opacity: 0.35; cursor: default; }
+    .status-bar {
+        font-size: 11px;
+        font-family: 'Source Code Pro', monospace;
+        color: var(--muted);
+    }
+</style>
+</head>
+<body>
+
+
+
+<div class="layout">
+
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar">
+
+        <div class="group-box">
+            <div class="legend">Bus Details</div>
+
+            <div class="field">
+                <label>Select Seater</label>
+                <select id="seaterSelect">
+                    <option value="">--- Select Seater ---</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Select Bus</label>
+                <select id="busSelect">
+                    <option value="">--- Select Bus ---</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Select Driver</label>
+                <select id="driverSelect">
+                    <option value="">--- Select Driver ---</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="group-box">
+            <div class="legend">Distance Details</div>
+
+            <div id="startOdometerField" class="field" style="display:none">
+                <label>Starting Odometer <span style="color:#c62828;font-size:9px">★ FIRST ENTRY</span></label>
+                <input type="number" id="txtStartOdometer" placeholder="km at trip start">
+            </div>
+
+            <div class="inline-pair">
+                <div class="field">
+                    <label>Current Odometer</label>
+                    <input type="number" id="txtOdometer" placeholder="km">
+                </div>
+                <div class="field">
+                    <label>Fuel Used</label>
+                    <input type="number" id="txtFuel" placeholder="L">
+                </div>
+            </div>
+
+            <button class="btn-enter" onclick="submitEntry()">Enter</button>
+        </div>
+
+    </div>
+
+    <!-- MAIN AREA -->
+    <div class="main">
+
+        <div class="bus-header">
+            <div class="bus-name" id="busName">All Buses</div>
+            <div class="bus-meta" id="busMeta">SELECT A BUS TO VIEW RECORDS</div>
+        </div>
+
+        <div class="grid-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Driver</th>
+                        <th>Date</th>
+                        <th>Prev Odometer</th>
+                        <th>Curr Odometer</th>
+                        <th>Total KM</th>
+                        <th>Diesel (L)</th>
+                        <th>KM/L</th>
+                        <th>Average</th>
+                        <th>Driver Avg</th>
+                    </tr>
+                </thead>
+                <tbody id="gridBody">
+                    <tr><td colspan="10"><div class="empty-state">Select a bus to load records</div></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <button class="btn-nav" id="btnPrevious" onclick="navigate(-1)" disabled>&#9664; Previous</button>
+            <div class="status-bar" id="statusBar">—</div>
+            <button class="btn-nav" id="btnNext" onclick="navigate(1)" disabled>Next &#9654;</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let allBuses = [];
+    let currentBusIndex = -1;
+
+    // Load seaters
+    fetch('/seaters')
+        .then(r => {
+            if (!r.ok) throw new Error('GET /seaters returned ' + r.status);
+            return r.json();
+        })
+        .then(data => {
+            const sel = document.getElementById('seaterSelect');
+            data.forEach(seater => {
+                const opt = document.createElement('option');
+                opt.value = seater;
+                opt.textContent = seater;
+                sel.appendChild(opt);
+            });
+        })
+        .catch(err => {
+            setStatus('ERROR loading seaters: ' + err.message);
+            console.error(err);
+        });
+
+    // Load buses
+    // Seater selection → repopulate bus dropdown
+    document.getElementById('seaterSelect').addEventListener('change', function () {
+        const seater = this.value;
+        const busSelect = document.getElementById('busSelect');
+
+        // Clear bus dropdown
+        busSelect.innerHTML = '<option value="">--- Select Bus ---</option>';
+        allBuses = [];
+        currentBusIndex = -1;
+        document.getElementById('busSelect').value = '';
+        document.getElementById('driverSelect').value = '';
+        clearGrid();
+        updateNavButtons();
+
+        if (!seater) return;
+
+        fetch(`/buses-by-seater/${encodeURIComponent(seater)}`)
+            .then(r => {
+                if (!r.ok) throw new Error('GET /buses-by-seater returned ' + r.status);
+                return r.json();
+            })
+            .then(data => {
+                allBuses = data;
+                data.forEach(bus => {
+                    const opt = document.createElement('option');
+                    opt.value = bus;
+                    opt.textContent = bus;
+                    busSelect.appendChild(opt);
+                });
+                setStatus(`${data.length} bus${data.length !== 1 ? 'es' : ''} available`);
+            })
+            .catch(err => {
+                setStatus('ERROR loading buses: ' + err.message);
+                console.error(err);
+            });
+    });
+
+    // Load drivers
+    fetch('/drivers')
+        .then(r => {
+            if (!r.ok) throw new Error('GET /drivers returned ' + r.status);
+            return r.json();
+        })
+        .then(data => {
+            const sel = document.getElementById('driverSelect');
+            data.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                sel.appendChild(opt);
+            });
+        })
+        .catch(err => {
+            setStatus('ERROR loading drivers: ' + err.message);
+            console.error(err);
+        });
+
+    // Bus selection change
+    document.getElementById('busSelect')
+.addEventListener('change', async function () {
+
+    const selected = this.value;
+
+    currentBusIndex = allBuses.indexOf(selected);
+
+    // Reset driver dropdown when bus changes
+    document.getElementById('driverSelect').value = '';
+
+    // Hide starting odometer field until we know if it's needed
+    document.getElementById('startOdometerField').style.display = 'none';
+    document.getElementById('txtStartOdometer').value = '';
+
+    if (!selected) {
+
+        document.getElementById('busName').textContent = 'All Buses';
+
+        document.getElementById('busMeta').textContent =
+            'ALL BUS RECORDS';
+
+        clearGrid();
+
+        updateNavButtons();
+
+        return;
+    }
+
+    // UPDATE HEADER
+    document.getElementById('busName').textContent = selected;
+
+    // Check if this bus has existing records — if not, show starting odometer field
+    const hasRecordsResp = await fetch(`/bus/${encodeURIComponent(selected)}/has-records`);
+    const hasRecordsData = await hasRecordsResp.json();
+    if (!hasRecordsData.hasRecords) {
+        document.getElementById('startOdometerField').style.display = 'block';
+    }
+
+    // GET LATEST BUS DATA
+    const latestResponse = await fetch(
+        `/bus/${encodeURIComponent(selected)}`
+    );
+
+    const latestData = await latestResponse.json();
+
+    document.getElementById('busMeta').textContent =
+        `Driver: ${latestData.driverName}
+         | Current Odometer:
+         ${latestData.currentOdometer} km
+         | Fuel Used:
+         ${latestData.fuelUsed} L`;
+
+    // LOAD GRID (all drivers for this bus)
+    loadGrid(selected);
+
+    updateNavButtons();
+
+    });
+
+    // Driver selection change
+    document.getElementById('driverSelect').addEventListener('change', function () {
+        const bus    = document.getElementById('busSelect').value;
+        const driver = this.value;
+
+        if (!bus) {
+            setStatus('Please select a bus first.');
+            return;
+        }
+
+        if (!driver) {
+            // No driver filter — show all records for the bus
+            loadGrid(bus);
+            document.getElementById('busMeta').textContent =
+                `Showing all drivers for ${bus}`;
+            return;
+        }
+
+        // Show filtered records for this bus + driver
+        document.getElementById('busName').textContent = bus;
+        document.getElementById('busMeta').textContent =
+            `Driver: ${driver} | Bus: ${bus}`;
+        loadGrid(bus, driver);
+    });
+
+    function loadGrid(busName, driverName) {
+        setStatus('Loading...');
+        const url = driverName
+            ? `/bus/${encodeURIComponent(busName)}/driver/${encodeURIComponent(driverName)}/records`
+            : `/bus/${encodeURIComponent(busName)}/records`;
+        fetch(url)
+            .then(r => r.json())
+            .then(rows => {
+                renderGrid(rows);
+                setStatus(`${rows.length} record${rows.length !== 1 ? 's' : ''}`);
+            })
+            .catch(() => setStatus('Error loading data.'));
+    }
+
+    function renderGrid(rows) {
+
+    const body = document.getElementById('gridBody');
+
+    if (!rows || rows.length === 0) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="10">
+                    <div class="empty-state">
+                        No records found for this bus
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    body.innerHTML = rows.map(r => {
+
+        const performanceClass =
+            (r.performance || '').toLowerCase() === 'good'
+                ? 'good'
+                : (r.performance || '').toLowerCase() === 'bad'
+                    ? 'bad'
+                    : '';
+
+        return `
+            <tr>
+
+                <td>${r.driverName ?? '—'}</td>
+
+                <td>${r.date ?? '—'}</td>
+
+                <td>${r.previousOdometer ?? '—'}</td>
+
+                <td>${r.currentOdometer ?? '—'}</td>
+
+                <td>${r.totalKm ?? '—'}</td>
+
+                <td>${r.fuelUsed ?? '—'}</td>
+
+                <td>${r.kmPerLitre ?? '—'}</td>
+
+                <td>${r.busAvg ?? '—'}</td>
+
+                <td>${r.driverAvg ?? '—'}</td>
+
+            </tr>
+        `;
+
+    }).join('');
+}
+
+    function clearGrid() {
+        document.getElementById('gridBody').innerHTML =
+            '<tr><td colspan="10"><div class="empty-state">Select a bus to load records</div></td></tr>';
+        setStatus('—');
+    }
+
+    function navigate(dir) {
+        const newIndex = currentBusIndex + dir;
+        if (newIndex < 0 || newIndex >= allBuses.length) return;
+        currentBusIndex = newIndex;
+        const busName = allBuses[currentBusIndex];
+        document.getElementById('busSelect').value = busName;
+        document.getElementById('busName').textContent = busName;
+        document.getElementById('busMeta').textContent = 'RECORDS FOR SELECTED BUS';
+        loadGrid(busName);
+        updateNavButtons();
+    }
+
+    function updateNavButtons() {
+        document.getElementById('btnPrevious').disabled = currentBusIndex <= 0;
+        document.getElementById('btnNext').disabled = currentBusIndex < 0 || currentBusIndex >= allBuses.length - 1;
+    }
+
+    function submitEntry() {
+        const bus      = document.getElementById('busSelect').value;
+        const driver   = document.getElementById('driverSelect').value;
+        const odometer = document.getElementById('txtOdometer').value;
+        const fuel     = document.getElementById('txtFuel').value;
+        const startOdoEl = document.getElementById('txtStartOdometer');
+        const startOdo = startOdoEl.value;
+        const startFieldVisible = document.getElementById('startOdometerField').style.display !== 'none';
+
+        if (!bus || !driver || !odometer || !fuel) {
+            alert('Please fill in all fields before submitting.');
+            return;
+        }
+
+        if (startFieldVisible && !startOdo) {
+            alert('This is the first entry for this bus. Please enter the starting odometer reading.');
+            return;
+        }
+
+        const payload = {
+            busName: bus,
+            driverName: driver,
+            currentOdometer: parseFloat(odometer),
+            fuelUsed: parseFloat(fuel)
+        };
+        if (startFieldVisible && startOdo) {
+            payload.startOdometer = parseFloat(startOdo);
+        }
+
+        fetch('/entry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+
+    setStatus('Entry saved successfully.');
+
+    // Hide the starting odometer field — bus now has records
+    document.getElementById('startOdometerField').style.display = 'none';
+    startOdoEl.value = '';
+
+    loadGrid(bus);
+
+    // REFRESH BUS HEADER
+    fetch(`/bus/${encodeURIComponent(bus)}`)
+        .then(r => r.json())
+        .then(data => {
+
+            document.getElementById('busMeta').textContent =
+                `Driver: ${data.driverName}
+                 | Current Odometer:
+                 ${data.currentOdometer} km
+                 | Fuel Used:
+                 ${data.fuelUsed} L`;
+
+        });
+
+    document.getElementById('txtOdometer').value = '';
+
+    document.getElementById('txtFuel').value = '';
+        })
+        .catch(() => setStatus('Failed to save entry.'));
+    }
+
+    function setStatus(msg) {
+        document.getElementById('statusBar').textContent = msg;
+    }
+</script>
+
+</body>
+</html>

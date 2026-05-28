@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin — Bus Fleet Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+    --bg:#dce0e3; --panel:#c8cdd1; --group-bg:#d4d8db; --border:#9aa0a6;
+    --dark:#2b3036; --accent:#1a5fa8; --danger:#c62828; --success:#2e7d32;
+    --warn:#e6a817; --text:#1e2428; --muted:#596068; --white:#f5f7f8;
+    --grid-hdr:#3a4750; --grid-row:#eaecee; --grid-alt:#dde0e3;
+}
+body { font-family:'Barlow',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
+.topbar { background:var(--dark); color:var(--white); padding:8px 18px; font-size:11px; font-family:'Source Code Pro',monospace; letter-spacing:.08em; display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.dot { width:8px; height:8px; border-radius:50%; }
+.dot.r{background:#e84c3d} .dot.g{background:#27ae60} .dot.b{background:var(--accent)}
+.topbar-title { flex:1; text-align:center; font-weight:600; opacity:.8; }
+.topbar a { color:#7eb3f0; text-decoration:none; font-size:10px; letter-spacing:.1em; border:1px solid #7eb3f0; padding:3px 10px; border-radius:2px; transition:all .15s; }
+.topbar a:hover { background:#7eb3f0; color:var(--dark); }
+.page { padding:20px; display:flex; flex-direction:column; gap:20px; max-width:1200px; margin:0 auto; width:100%; }
+.tabs { display:flex; gap:0; border-bottom:2px solid var(--border); }
+.tab-btn { padding:8px 22px; font-family:'Barlow',sans-serif; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border); border-bottom:none; background:var(--panel); color:var(--muted); cursor:pointer; margin-right:4px; border-radius:2px 2px 0 0; transition:all .12s; }
+.tab-btn.active { background:var(--white); color:var(--accent); }
+.tab-btn:hover:not(.active) { background:#bcc2c8; }
+.tab-panel { display:none; }
+.tab-panel.active { display:flex; flex-direction:column; gap:16px; }
+.group-box { background:var(--group-bg); border:1px solid var(--border); border-radius:2px; position:relative; padding:24px 16px 16px; }
+.group-box .legend { position:absolute; top:-10px; left:12px; background:var(--group-bg); padding:0 6px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); border:1px solid var(--border); border-radius:2px; }
+.form-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+.field { display:flex; flex-direction:column; gap:4px; }
+.field label { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+.field input, .field select { padding:6px 8px; font-family:'Barlow',sans-serif; font-size:13px; background:var(--white); border:1px solid var(--border); border-radius:2px; color:var(--text); outline:none; min-width:140px; }
+.field input:focus, .field select:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(26,95,168,.15); }
+.btn { padding:7px 18px; font-family:'Barlow',sans-serif; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; border:none; border-radius:2px; cursor:pointer; transition:background .12s; white-space:nowrap; }
+.btn-primary{background:var(--accent);color:white} .btn-primary:hover{background:#154e8e}
+.btn-danger{background:var(--danger);color:white} .btn-danger:hover{background:#a52020}
+.btn-edit{background:var(--warn);color:white} .btn-edit:hover{background:#c08a10}
+.btn-save{background:var(--success);color:white} .btn-save:hover{background:#1b5e20}
+.btn-cancel{background:var(--panel);color:var(--dark);border:1px solid var(--border)} .btn-cancel:hover{background:#bcc2c8}
+.btn-sm{padding:4px 10px;font-size:10px}
+.btn-ghost{background:transparent;color:var(--danger);border:1px solid var(--danger);font-size:10px;padding:3px 8px} .btn-ghost:hover{background:var(--danger);color:white}
+.grid-wrapper { border:1px solid var(--border); border-radius:2px; background:var(--white); overflow:auto; max-height:440px; }
+table { width:100%; border-collapse:collapse; }
+thead th { background:var(--grid-hdr); color:#cdd5db; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:9px 10px; text-align:left; position:sticky; top:0; white-space:nowrap; border-right:1px solid rgba(255,255,255,.07); z-index:1; }
+thead th.col-actions { min-width:120px; }
+tbody tr:nth-child(even){background:var(--grid-alt)} tbody tr:nth-child(odd){background:var(--grid-row)} tbody tr.editing{background:#dbeeff!important}
+tbody td { padding:6px 10px; border-right:1px solid rgba(0,0,0,.06); border-bottom:1px solid rgba(0,0,0,.05); white-space:nowrap; font-family:'Source Code Pro',monospace; font-size:12px; }
+tbody td input, tbody td select { padding:3px 6px; font-family:'Source Code Pro',monospace; font-size:12px; background:white; border:1px solid var(--accent); border-radius:2px; width:100%; min-width:80px; outline:none; }
+.actions-cell{display:flex;gap:5px;align-items:center}
+.empty-state{padding:40px;text-align:center;color:var(--muted);font-family:'Source Code Pro',monospace;font-size:12px}
+#toast{position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:2px;font-family:'Source Code Pro',monospace;font-size:12px;font-weight:600;letter-spacing:.05em;opacity:0;transition:opacity .2s;z-index:9999;pointer-events:none}
+#toast.show{opacity:1} #toast.ok{background:var(--success);color:white} #toast.err{background:var(--danger);color:white}
+.col-tag { display:inline-flex; align-items:center; gap:5px; background:var(--panel); border:1px solid var(--border); border-radius:2px; padding:3px 8px; font-size:11px; font-family:'Source Code Pro',monospace; }
+.col-tag .del-col { background:none; border:none; color:var(--danger); cursor:pointer; font-size:13px; line-height:1; padding:0 2px; }
+.col-tag .del-col:hover { color:#a52020; }
+.col-tag.protected { opacity:.5; cursor:default; }
+.schema-cols { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; min-height:32px; }
+.type-badge { font-size:9px; color:var(--muted); letter-spacing:.05em; }
+.search-bar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.record-count{font-family:'Source Code Pro',monospace;font-size:11px;color:var(--muted);margin-left:auto;align-self:center}
+
+/* ── ANALYTICS TAB ── */
+.sub-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:16px; }
+.sub-tab-btn { padding:7px 18px; font-family:'Barlow',sans-serif; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; border:1px solid transparent; border-bottom:none; background:transparent; color:var(--muted); cursor:pointer; border-radius:2px 2px 0 0; transition:all .12s; }
+.sub-tab-btn.active { background:var(--white); color:var(--accent); border-color:var(--border); }
+.sub-tab-btn:hover:not(.active) { color:var(--text); }
+.sub-tab-panel { display:none; }
+.sub-tab-panel.active { display:flex; flex-direction:column; gap:16px; }
+
+.period-toggle { display:flex; gap:0; border:1px solid var(--border); border-radius:2px; overflow:hidden; width:fit-content; }
+.period-btn { padding:5px 16px; font-family:'Barlow',sans-serif; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; border:none; background:var(--panel); color:var(--muted); cursor:pointer; transition:all .12s; }
+.period-btn.active { background:var(--accent); color:white; }
+.period-btn:hover:not(.active) { background:#bcc2c8; }
+
+.stat-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:10px; }
+.stat-card { background:var(--white); border:1px solid var(--border); border-radius:2px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; position:relative; overflow:hidden; }
+.stat-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); }
+.stat-card.good::before { background:var(--success); }
+.stat-card.bad::before { background:var(--danger); }
+.stat-card.warn::before { background:var(--warn); }
+.stat-card .sc-label { font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+.stat-card .sc-value { font-family:'Source Code Pro',monospace; font-size:20px; font-weight:600; color:var(--text); line-height:1.1; }
+.stat-card .sc-sub { font-family:'Source Code Pro',monospace; font-size:10px; color:var(--muted); }
+
+.chart-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.chart-box { background:var(--white); border:1px solid var(--border); border-radius:2px; padding:14px; }
+.chart-box.full { grid-column:1/-1; }
+.chart-title { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+.chart-canvas-wrap { position:relative; }
+
+.rank-table { width:100%; border-collapse:collapse; font-family:'Source Code Pro',monospace; font-size:12px; }
+.rank-table thead th { background:var(--grid-hdr); color:#cdd5db; font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:8px 10px; text-align:left; }
+.rank-table tbody tr:nth-child(even){ background:var(--grid-alt); }
+.rank-table tbody tr:nth-child(odd){ background:var(--grid-row); }
+.rank-table tbody td { padding:7px 10px; border-right:1px solid rgba(0,0,0,.06); }
+.rank-badge { display:inline-block; width:20px; height:20px; border-radius:50%; background:var(--panel); color:var(--muted); font-size:10px; font-weight:700; text-align:center; line-height:20px; }
+.rank-badge.gold { background:#f5c518; color:#3a3000; }
+.rank-badge.silver { background:#aaa; color:#fff; }
+.rank-badge.bronze { background:#cd7f32; color:#fff; }
+.kml-bar { height:6px; border-radius:1px; background:var(--accent); display:inline-block; min-width:2px; }
+
+.driver-cards-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
+.driver-card { background:var(--white); border:1px solid var(--border); border-radius:2px; padding:14px; }
+.driver-card .dc-name { font-weight:700; font-size:13px; margin-bottom:10px; color:var(--text); border-bottom:1px solid var(--border); padding-bottom:8px; }
+.driver-card .dc-stats { display:flex; flex-direction:column; gap:5px; }
+.driver-card .dc-stat { display:flex; justify-content:space-between; align-items:center; }
+.driver-card .dc-stat-label { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+.driver-card .dc-stat-val { font-family:'Source Code Pro',monospace; font-size:13px; font-weight:600; color:var(--text); }
+.driver-card .dc-perf-bar { margin-top:10px; }
+.driver-card .dc-perf-track { height:5px; background:var(--panel); border-radius:2px; overflow:hidden; margin-top:3px; }
+.driver-card .dc-perf-fill { height:100%; border-radius:2px; background:var(--accent); }
+.driver-card .dc-perf-fill.good { background:var(--success); }
+.driver-card .dc-perf-fill.bad { background:var(--danger); }
+
+.analytics-loading { display:flex; align-items:center; justify-content:center; min-height:120px; font-family:'Source Code Pro',monospace; font-size:12px; color:var(--muted); }
+.bus-select-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.bus-select-row label { font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+.bus-select-row select { padding:5px 8px; font-family:'Barlow',sans-serif; font-size:13px; background:var(--white); border:1px solid var(--border); border-radius:2px; color:var(--text); outline:none; }
+.bus-select-row select:focus { border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="page">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('buses')">Buses</button>
+        <button class="tab-btn" onclick="switchTab('drivers')">Drivers</button>
+        <button class="tab-btn" onclick="switchTab('records')">Trip Records</button>
+        <button class="tab-btn" onclick="switchTab('analytics')">Analytics</button>
+    </div>
+
+    <!-- ===== BUSES ===== -->
+    <div id="tab-buses" class="tab-panel active">
+        <div class="group-box">
+            <div class="legend">Add New Bus</div>
+            <div id="add-bus-form" class="form-row"></div>
+        </div>
+        <div class="group-box">
+            <div class="legend">Manage Columns — BusName Table</div>
+            <div class="form-row">
+                <div class="field"><label>Column Name</label><input type="text" id="newColBus" placeholder="e.g. Notes"></div>
+                <div class="field">
+                    <label>Type</label>
+                    <select id="newColBusType">
+                        <option value="TEXT">Text</option>
+                        <option value="INTEGER">Number (whole)</option>
+                        <option value="REAL">Number (decimal)</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addColumn('BusName','newColBus','newColBusType')">Add Column</button>
+            </div>
+            <div class="schema-cols" id="schema-BusName"></div>
+        </div>
+        <div class="group-box">
+            <div class="legend">All Buses</div>
+            <div class="grid-wrapper"><table><thead id="bus-thead"></thead><tbody id="bus-tbody"></tbody></table></div>
+        </div>
+    </div>
+
+    <!-- ===== DRIVERS ===== -->
+    <div id="tab-drivers" class="tab-panel">
+        <div class="group-box">
+            <div class="legend">Add New Driver</div>
+            <div id="add-driver-form" class="form-row"></div>
+        </div>
+        <div class="group-box">
+            <div class="legend">Manage Columns — Drivers Table</div>
+            <div class="form-row">
+                <div class="field"><label>Column Name</label><input type="text" id="newColDrivers" placeholder="e.g. Phone"></div>
+                <div class="field">
+                    <label>Type</label>
+                    <select id="newColDriversType">
+                        <option value="TEXT">Text</option>
+                        <option value="INTEGER">Number (whole)</option>
+                        <option value="REAL">Number (decimal)</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addColumn('Drivers','newColDrivers','newColDriversType')">Add Column</button>
+            </div>
+            <div class="schema-cols" id="schema-Drivers"></div>
+        </div>
+        <div class="group-box">
+            <div class="legend">All Drivers</div>
+            <div class="grid-wrapper"><table><thead id="driver-thead"></thead><tbody id="driver-tbody"></tbody></table></div>
+        </div>
+    </div>
+
+    <!-- ===== RECORDS ===== -->
+    <div id="tab-records" class="tab-panel">
+        <div class="group-box">
+            <div class="legend">Filter</div>
+            <div class="search-bar">
+                <div class="field"><label>Bus</label><select id="filterBus" onchange="loadRecords()"><option value="">All Buses</option></select></div>
+                <div class="field"><label>Driver</label><select id="filterDriver" onchange="loadRecords()"><option value="">All Drivers</option></select></div>
+                <span class="record-count" id="recordCount">—</span>
+            </div>
+        </div>
+        <div class="group-box">
+            <div class="legend">Manage Columns — BusTable</div>
+            <div class="form-row">
+                <div class="field"><label>Column Name</label><input type="text" id="newColBusTable" placeholder="e.g. Route"></div>
+                <div class="field">
+                    <label>Type</label>
+                    <select id="newColBusTableType">
+                        <option value="TEXT">Text</option>
+                        <option value="INTEGER">Number (whole)</option>
+                        <option value="REAL">Number (decimal)</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addColumn('BusTable','newColBusTable','newColBusTableType')">Add Column</button>
+            </div>
+            <div class="schema-cols" id="schema-BusTable"></div>
+        </div>
+        <div class="group-box">
+            <div class="legend">Trip Records</div>
+            <div class="grid-wrapper"><table><thead id="record-thead"></thead><tbody id="record-tbody"></tbody></table></div>
+        </div>
+    </div>
+
+    <!-- ===== ANALYTICS ===== -->
+    <div id="tab-analytics" class="tab-panel">
+        <div class="sub-tabs">
+            <button class="sub-tab-btn active" onclick="switchSubTab('fleet')">Fleet Overview</button>
+            <button class="sub-tab-btn" onclick="switchSubTab('busperf')">Bus Performance</button>
+            <button class="sub-tab-btn" onclick="switchSubTab('driverperf')">Driver Performance</button>
+        </div>
+
+        <!-- ── FLEET OVERVIEW ── -->
+        <div id="subtab-fleet" class="sub-tab-panel active">
+            <div class="group-box">
+                <div class="legend">Period</div>
+                <div class="period-toggle">
+                    <button class="period-btn active" onclick="setFleetPeriod('week',this)">This Week</button>
+                    <button class="period-btn" onclick="setFleetPeriod('month',this)">This Month</button>
+                </div>
+            </div>
+            <div id="fleet-cards" class="stat-cards">
+                <div class="analytics-loading">Loading fleet data…</div>
+            </div>
+        </div>
+
+        <!-- ── BUS PERFORMANCE ── -->
+        <div id="subtab-busperf" class="sub-tab-panel">
+            <div class="group-box">
+                <div class="legend">Select Bus</div>
+                <div class="bus-select-row">
+                    <label>Bus</label>
+                    <select id="analyticsBusSelect" onchange="loadBusPerf()">
+                        <option value="">All Buses</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-box">
+                    <div class="chart-title">Avg KM/L per Bus</div>
+                    <div class="chart-canvas-wrap"><canvas id="chartBusKml" height="220"></canvas></div>
+                </div>
+                <div class="chart-box">
+                    <div class="chart-title">Fuel Efficiency Over Time</div>
+                    <div class="chart-canvas-wrap"><canvas id="chartEffLine" height="220"></canvas></div>
+                </div>
+            </div>
+            <div class="group-box">
+                <div class="legend">Bus KM/L Ranking</div>
+                <div id="busRankTable"><div class="analytics-loading">Loading…</div></div>
+            </div>
+            <div class="group-box">
+                <div class="legend">Driver Efficiency on Selected Bus</div>
+                <div id="busDriverTable"><div class="analytics-loading">Select a bus above</div></div>
+            </div>
+        </div>
+
+        <!-- ── DRIVER PERFORMANCE ── -->
+        <div id="subtab-driverperf" class="sub-tab-panel">
+            <div id="driver-perf-cards" class="driver-cards-grid">
+                <div class="analytics-loading">Loading driver data…</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ─── state ───────────────────────────────────────────────
+const state = {
+    BusName:  { schema:[], rows:[] },
+    Drivers:  { schema:[], rows:[] },
+    BusTable: { schema:[], rows:[] },
+};
+
+// ─── toast ───────────────────────────────────────────────
+function toast(msg, ok=true){
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.className='show '+(ok?'ok':'err');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.className='',2800);
+}
+
+// ─── tabs ────────────────────────────────────────────────
+function switchTab(name){
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if(name==='analytics') initAnalytics();
+}
+
+// ─── schema helpers ──────────────────────────────────────
+async function fetchSchema(table){
+    const data = await fetch(`/admin/schema/${table}`).then(r=>r.json());
+    state[table].schema = data;
+    return data;
+}
+
+function renderSchemaBar(table){
+    const bar = document.getElementById('schema-'+table);
+    bar.innerHTML = state[table].schema.map(col=>`
+        <div class="col-tag ${col.protected?'protected':''}">
+            <span>${col.name}</span>
+            <span class="type-badge">${col.type}</span>
+            ${col.protected
+                ? '<span style="font-size:10px;color:var(--muted)">🔒</span>'
+                : `<button class="del-col" title="Delete column" onclick="deleteColumn('${table}','${col.name}')">×</button>`}
+        </div>
+    `).join('');
+}
+
+// ─── generic grid renderer ───────────────────────────────
+// skipCols: columns to not render as data cells (e.g. computed cols)
+function renderGrid(table, theadId, tbodyId, rows, onEdit, onDelete){
+    const schema = state[table].schema;
+    const thead  = document.getElementById(theadId);
+    const tbody  = document.getElementById(tbodyId);
+
+    // Headers
+    thead.innerHTML = '<tr>'
+        + schema.map(c=>`<th>${c.name}</th>`).join('')
+        + '<th class="col-actions">Actions</th></tr>';
+
+    if(!rows.length){
+        tbody.innerHTML = `<tr><td colspan="${schema.length+1}"><div class="empty-state">No records found</div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(row=>{
+        const id = row[schema[0].name]; // first col is always ID
+        const cells = schema.map(c=>`<td>${row[c.name]??''}</td>`).join('');
+        return `<tr id="row-${table}-${id}">
+            ${cells}
+            <td><div class="actions-cell">
+                <button class="btn btn-edit btn-sm" onclick="${onEdit}(${id})">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="${onDelete}(${id})">Delete</button>
+            </div></td>
+        </tr>`;
+    }).join('');
+}
+
+// ─── generic edit-row renderer ───────────────────────────
+function renderEditRow(table, theadId, id, row, onSave){
+    const schema   = state[table].schema;
+    const trEl     = document.getElementById(`row-${table}-${id}`);
+    if(!trEl) return;
+    trEl.classList.add('editing');
+
+    const cells = schema.map(col=>{
+        if(col.name === schema[0].name) return `<td>${id}</td>`; // ID cell read-only
+        const val = (row[col.name]??'').toString().replace(/"/g,'&quot;');
+        const t   = col.type==='INTEGER'||col.type==='REAL' ? 'number' : 'text';
+        return `<td><input type="${t}" id="edit-${table}-${id}-${col.name}" value="${val}"></td>`;
+    }).join('');
+
+    trEl.innerHTML = cells + `<td><div class="actions-cell">
+        <button class="btn btn-save btn-sm" onclick="${onSave}(${id})">Save</button>
+        <button class="btn btn-cancel btn-sm" onclick="reloadAll()">Cancel</button>
+    </div></td>`;
+}
+
+// Collect edited values from a row back into an object
+function collectEdit(table, id){
+    const schema = state[table].schema;
+    const body   = {};
+    schema.forEach(col=>{
+        if(col.name === schema[0].name) return;
+        const el = document.getElementById(`edit-${table}-${id}-${col.name}`);
+        if(el) body[col.name] = col.type==='INTEGER'||col.type==='REAL' ? parseFloat(el.value)||0 : el.value;
+    });
+    return body;
+}
+
+// ─── generic add-form builder ────────────────────────────
+function buildAddForm(table, formId, onAdd){
+    const schema = state[table].schema;
+    const form   = document.getElementById(formId);
+    // Skip only the ID column (auto-generated) — all other columns are editable on add
+    form.innerHTML = schema
+        .filter(c => c.name !== 'ID')
+        .map(col=>{
+            const t = col.type==='INTEGER'||col.type==='REAL' ? 'number' : 'text';
+            return `<div class="field">
+                <label>${col.name}</label>
+                <input type="${t}" id="add-${table}-${col.name}" placeholder="${col.name}">
+            </div>`;
+        }).join('')
+        + `<button class="btn btn-primary" onclick="${onAdd}()">Add</button>`;
+}
+
+// ─── BUSES ───────────────────────────────────────────────
+async function loadBuses(){
+    const [schema, rows] = await Promise.all([
+        fetchSchema('BusName'),
+        fetch('/admin/buses').then(r=>r.json())
+    ]);
+    state.BusName.rows = rows;
+    renderSchemaBar('BusName');
+    buildAddForm('BusName','add-bus-form','addBus');
+    renderBusGrid(rows);
+
+    // Populate bus filter in records tab
+    const fb = document.getElementById('filterBus');
+    const prev = fb.value;
+    fb.innerHTML = '<option value="">All Buses</option>';
+    rows.forEach(b=>{
+        const o=document.createElement('option');
+        o.value=o.textContent=b.BusNames; fb.appendChild(o);
+    });
+    fb.value = prev;
+}
+
+function renderBusGrid(rows){
+    const schema = state.BusName.schema;
+    const thead  = document.getElementById('bus-thead');
+    const tbody  = document.getElementById('bus-tbody');
+
+    // Build headers: all schema cols + Target KML + Actions
+    thead.innerHTML = '<tr>'
+        + schema.map(c=>`<th>${c.name}</th>`).join('')
+        + '<th>Target KM/L</th>'
+        + '<th class="col-actions">Actions</th></tr>';
+
+    if(!rows.length){
+        tbody.innerHTML = `<tr><td colspan="${schema.length+2}"><div class="empty-state">No buses found</div></td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(row=>{
+        const id = row.ID;
+        const cells = schema.map(c=>`<td>${row[c.name]??''}</td>`).join('');
+        const target = row.Target_KML;
+        const targetDisplay = target !== null && target !== undefined && target !== ''
+            ? `<span style="font-weight:600;color:var(--accent)">${target}</span>`
+            : `<span style="color:var(--muted);font-size:10px">Not set</span>`;
+        return `<tr id="row-BusName-${id}">
+            ${cells}
+            <td id="target-cell-${id}">${targetDisplay}</td>
+            <td><div class="actions-cell">
+                <button class="btn btn-edit btn-sm" onclick="editBus(${id})">Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteBus(${id})">Delete</button>
+            </div></td>
+        </tr>`;
+    }).join('');
+}
+
+function editBus(id){
+    const row    = state.BusName.rows.find(r=>r.ID===id);
+    const schema = state.BusName.schema;
+    const trEl   = document.getElementById(`row-BusName-${id}`);
+    if(!trEl) return;
+    trEl.classList.add('editing');
+
+    const cells = schema.map(col=>{
+        if(col.name === 'ID') return `<td>${id}</td>`;
+        const val = (row[col.name]??'').toString().replace(/"/g,'&quot;');
+        const t   = col.type==='INTEGER'||col.type==='REAL' ? 'number' : 'text';
+        return `<td><input type="${t}" id="edit-BusName-${id}-${col.name}" value="${val}"></td>`;
+    }).join('');
+
+    const currentTarget = row.Target_KML ?? '';
+    trEl.innerHTML = cells
+        + `<td><input type="number" step="0.1" min="0" id="edit-target-${id}"
+               value="${currentTarget}" placeholder="e.g. 8.5"
+               style="width:90px"></td>`
+        + `<td><div class="actions-cell">
+               <button class="btn btn-save btn-sm" onclick="saveBus(${id})">Save</button>
+               <button class="btn btn-cancel btn-sm" onclick="loadBuses()">Cancel</button>
+           </div></td>`;
+}
+
+async function saveBus(id){
+    // Save all regular fields
+    const body = collectEdit('BusName', id);
+
+    // Save Target_KML separately via dedicated endpoint
+    const targetEl = document.getElementById(`edit-target-${id}`);
+    const targetVal = targetEl ? targetEl.value.trim() : '';
+    const targetNum = targetVal === '' ? null : parseFloat(targetVal);
+
+    const [r1, r2] = await Promise.all([
+        fetch(`/admin/bus/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}),
+        fetch(`/admin/bus/${id}/target-kml`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({target_kml: targetNum})})
+    ]);
+
+    if(r1.ok && r2.ok){
+        toast('Bus updated');
+        analyticsData = null;  // force analytics to re-fetch with updated Good/Bad values
+        loadBuses();
+    } else {
+        toast('Error updating bus', false);
+    }
+}
+
+async function addBus(){
+    const schema = state.BusName.schema.filter(c=>c.name!=='ID');
+    const body   = {};
+    for(const col of schema){
+        const el = document.getElementById(`add-BusName-${col.name}`);
+        if(el) body[col.name] = el.value.trim();
+    }
+    const r = await fetch('/admin/bus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){
+        toast('Bus added');
+        document.querySelectorAll('[id^="add-BusName-"]').forEach(el=>el.value='');
+        loadBuses();
+    } else { const d=await r.json(); toast(d.error||'Error',false); }
+}
+
+async function deleteBus(id){
+    const bus = state.BusName.rows.find(r=>r.ID===id);
+    if(!confirm(`Delete bus "${bus?.BusNames}"?`)) return;
+    const r = await fetch(`/admin/bus/${id}`,{method:'DELETE'});
+    r.ok ? (toast('Bus deleted'), loadBuses()) : toast('Error',false);
+}
+
+// ─── DRIVERS ─────────────────────────────────────────────
+async function loadDrivers(){
+    const [schema, rows] = await Promise.all([
+        fetchSchema('Drivers'),
+        fetch('/admin/drivers').then(r=>r.json())
+    ]);
+    state.Drivers.rows = rows;
+    renderSchemaBar('Drivers');
+    buildAddForm('Drivers','add-driver-form','addDriver');
+    renderGrid('Drivers','driver-thead','driver-tbody', rows,'editDriver','deleteDriver');
+
+    // Populate driver filter
+    const fd = document.getElementById('filterDriver');
+    const prev = fd.value;
+    fd.innerHTML = '<option value="">All Drivers</option>';
+    rows.forEach(d=>{
+        const o=document.createElement('option');
+        o.value=o.textContent=d.DriverName; fd.appendChild(o);
+    });
+    fd.value = prev;
+}
+
+function editDriver(id){
+    const row = state.Drivers.rows.find(r=>r.ID===id);
+    renderEditRow('Drivers','driver-thead',id,row,'saveDriver');
+}
+
+async function saveDriver(id){
+    const body = collectEdit('Drivers',id);
+    const r = await fetch(`/admin/driver/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    r.ok ? (toast('Driver updated'), loadDrivers()) : toast('Error updating driver',false);
+}
+
+async function addDriver(){
+    const schema = state.Drivers.schema.filter(c=>c.name!=='ID');
+    const body   = {};
+    for(const col of schema){
+        const el = document.getElementById(`add-Drivers-${col.name}`);
+        if(el) body[col.name] = el.value.trim();
+    }
+    const r = await fetch('/admin/driver',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){
+        toast('Driver added');
+        document.querySelectorAll('[id^="add-Drivers-"]').forEach(el=>el.value='');
+        loadDrivers();
+    } else { const d=await r.json(); toast(d.error||'Error',false); }
+}
+
+async function deleteDriver(id){
+    const d = state.Drivers.rows.find(r=>r.ID===id);
+    if(!confirm(`Delete driver "${d?.DriverName}"?`)) return;
+    const r = await fetch(`/admin/driver/${id}`,{method:'DELETE'});
+    r.ok ? (toast('Driver deleted'), loadDrivers()) : toast('Error',false);
+}
+
+// ─── RECORDS ─────────────────────────────────────────────
+async function loadRecords(){
+    await fetchSchema('BusTable');
+    renderSchemaBar('BusTable');
+
+    const bus    = document.getElementById('filterBus').value;
+    const driver = document.getElementById('filterDriver').value;
+    let url = '/admin/records';
+    const p=[];
+    if(bus)    p.push('bus='   +encodeURIComponent(bus));
+    if(driver) p.push('driver='+encodeURIComponent(driver));
+    if(p.length) url+='?'+p.join('&');
+
+    const rows = await fetch(url).then(r=>r.json());
+    state.BusTable.rows = rows;
+    document.getElementById('recordCount').textContent = `${rows.length} record${rows.length!==1?'s':''}`;
+    renderGrid('BusTable','record-thead','record-tbody', rows,'editRecord','deleteRecord');
+}
+
+function editRecord(id){
+    const row = state.BusTable.rows.find(r=>r.ID===id);
+    renderEditRow('BusTable','record-thead',id,row,'saveRecord');
+}
+
+async function saveRecord(id){
+    const body = collectEdit('BusTable',id);
+    // Recalculate KM/L and Good/Bad if odometer/fuel cols exist
+    if(body.B_Odometer!==undefined && body.E_Odometer!==undefined && body.Fuel_Used){
+        const km  = body.E_Odometer - body.B_Odometer;
+        const kml = body.Fuel_Used ? Math.round((km/body.Fuel_Used)*100)/100 : null;
+        body['KM/L']     = kml;
+        body['Good/Bad'] = kml && kml>=8 ? 'Good' : 'Bad';
+    }
+    const r = await fetch(`/admin/record/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    r.ok ? (toast('Record updated'), loadRecords()) : toast('Error updating record',false);
+}
+
+async function deleteRecord(id){
+    if(!confirm(`Delete trip record #${id}?`)) return;
+    const r = await fetch(`/admin/record/${id}`,{method:'DELETE'});
+    r.ok ? (toast('Record deleted'), loadRecords()) : toast('Error',false);
+}
+
+// ─── COLUMN MANAGEMENT ───────────────────────────────────
+async function addColumn(table, nameInputId, typeInputId){
+    const name = document.getElementById(nameInputId).value.trim();
+    const type = document.getElementById(typeInputId).value;
+    if(!name){ toast('Enter a column name',false); return; }
+    const r = await fetch(`/admin/schema/${table}/add-column`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name, type})
+    });
+    if(r.ok){
+        toast(`Column "${name}" added`);
+        document.getElementById(nameInputId).value='';
+        reloadAll();
+    } else { const d=await r.json(); toast(d.error||'Error',false); }
+}
+
+async function deleteColumn(table, colName){
+    if(!confirm(`Delete column "${colName}" from ${table}?\n\nAll data in this column will be permanently lost.`)) return;
+    const r = await fetch(`/admin/schema/${table}/column/${encodeURIComponent(colName)}`,{method:'DELETE'});
+    if(r.ok){ toast(`Column "${colName}" deleted`); reloadAll(); }
+    else { const d=await r.json(); toast(d.error||'Error',false); }
+}
+
+// ─── INIT ────────────────────────────────────────────────
+async function reloadAll(){
+    await Promise.all([loadBuses(), loadDrivers(), loadRecords()]);
+}
+
+// ════════════════════════════════════════════════════════
+// ── ANALYTICS ───────────────────────────────────────────
+// ════════════════════════════════════════════════════════
+
+let analyticsData = null;      // raw records cache
+let chartBusKml   = null;      // Chart.js instance
+let chartEffLine  = null;      // Chart.js instance
+let fleetPeriod   = 'week';
+
+// Sub-tab switcher
+function switchSubTab(name){
+    document.querySelectorAll('.sub-tab-panel').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.sub-tab-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('subtab-'+name).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if(name==='fleet')      renderFleetOverview();
+    if(name==='busperf')    loadBusPerf();
+    if(name==='driverperf') renderDriverPerf();
+}
+
+// One-time init: fetch all records, populate bus dropdown
+async function initAnalytics(){
+    if(analyticsData) return; // already loaded
+    const rows = await fetch('/admin/records').then(r=>r.json());
+    analyticsData = rows;
+    // populate analytics bus select
+    const buses = [...new Set(rows.map(r=>r.BusName))].sort();
+    const sel = document.getElementById('analyticsBusSelect');
+    sel.innerHTML = '<option value="">All Buses</option>'
+        + buses.map(b=>`<option value="${b}">${b}</option>`).join('');
+    renderFleetOverview();
+}
+
+// Force-refresh analytics cache (called when records change)
+function refreshAnalyticsCache(){
+    analyticsData = null;
+}
+
+// ── helpers ──────────────────────────────────────────────
+function dateOf(r){ return new Date(r.Date||r.date||''); }
+
+function filterByPeriod(rows, period){
+    const now  = new Date();
+    const msDay = 86400000;
+    if(period==='week'){
+        const mon = new Date(now);
+        mon.setHours(0,0,0,0);
+        mon.setDate(now.getDate() - ((now.getDay()+6)%7)); // Monday
+        return rows.filter(r=>dateOf(r)>=mon);
+    }
+    if(period==='month'){
+        const first = new Date(now.getFullYear(), now.getMonth(), 1);
+        return rows.filter(r=>dateOf(r)>=first);
+    }
+    return rows;
+}
+
+function calcKml(r){
+    const km   = (r.E_Odometer||0) - (r.B_Odometer||0);
+    const fuel = r.Fuel_Used||0;
+    return fuel>0 ? km/fuel : null;
+}
+
+function fmt(n, dec=2){ return n!=null ? (+n).toFixed(dec) : '—'; }
+
+// ── Fleet Overview ───────────────────────────────────────
+function setFleetPeriod(p, btn){
+    fleetPeriod = p;
+    document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderFleetOverview();
+}
+
+function renderFleetOverview(){
+    if(!analyticsData){ document.getElementById('fleet-cards').innerHTML='<div class="analytics-loading">Loading…</div>'; return; }
+
+    const rows = filterByPeriod(analyticsData, fleetPeriod);
+
+    if(!rows.length){
+        document.getElementById('fleet-cards').innerHTML='<div class="analytics-loading">No data for this period.</div>';
+        return;
+    }
+
+    // Total distance
+    const totalKm = rows.reduce((s,r)=>{
+        const km = (r.E_Odometer||0)-(r.B_Odometer||0);
+        return s + (km>0?km:0);
+    },0);
+
+    // Total fuel
+    const totalFuel = rows.reduce((s,r)=>s+(r.Fuel_Used||0),0);
+
+    // Avg km/l overall
+    const avgKml = totalFuel>0 ? totalKm/totalFuel : null;
+
+    // Per-driver stats
+    const driverStats = {};
+    rows.forEach(r=>{
+        const d = r.Driver||r.driverName||'Unknown';
+        if(!driverStats[d]) driverStats[d]={km:0,fuel:0};
+        driverStats[d].km   += Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
+        driverStats[d].fuel += r.Fuel_Used||0;
+    });
+    const driverKml = Object.entries(driverStats)
+        .map(([name,s])=>({name, kml: s.fuel>0?s.km/s.fuel:null}))
+        .filter(d=>d.kml!=null)
+        .sort((a,b)=>b.kml-a.kml);
+
+    const bestDriver  = driverKml[0]||null;
+    const worstDriver = driverKml[driverKml.length-1]||null;
+
+    // Per-bus stats
+    const busStats = {};
+    rows.forEach(r=>{
+        const b = r.BusName||'Unknown';
+        if(!busStats[b]) busStats[b]={km:0,fuel:0};
+        busStats[b].km   += Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
+        busStats[b].fuel += r.Fuel_Used||0;
+    });
+    const busKml = Object.entries(busStats)
+        .map(([name,s])=>({name, kml: s.fuel>0?s.km/s.fuel:null}))
+        .filter(b=>b.kml!=null)
+        .sort((a,b)=>b.kml-a.kml);
+    const bestBus = busKml[0]||null;
+
+    const cards = [
+        { label:'Total Distance',    value: fmt(totalKm,0)+' km',     sub: fleetPeriod==='week'?'This week':'This month', cls:'' },
+        { label:'Total Fuel Used',   value: fmt(totalFuel,0)+' L',     sub: fleetPeriod==='week'?'This week':'This month', cls:'' },
+        { label:'Fleet Avg KM/L',    value: fmt(avgKml),               sub: 'Overall efficiency', cls: avgKml&&avgKml>=8?'good':'warn' },
+        { label:'Best Driver',       value: bestDriver?bestDriver.name:'—', sub: bestDriver?fmt(bestDriver.kml)+' km/l':'', cls:'good' },
+        { label:'Worst Driver',      value: worstDriver&&worstDriver!==bestDriver?worstDriver.name:'—', sub: worstDriver&&worstDriver!==bestDriver?fmt(worstDriver.kml)+' km/l':'', cls:'bad' },
+        { label:'Best Bus',          value: bestBus?bestBus.name:'—',  sub: bestBus?fmt(bestBus.kml)+' km/l avg':'', cls:'good' },
+        { label:'Total Entries',     value: rows.length,               sub: 'Trip records', cls:'' },
+    ];
+
+    document.getElementById('fleet-cards').innerHTML = cards.map(c=>`
+        <div class="stat-card ${c.cls}">
+            <div class="sc-label">${c.label}</div>
+            <div class="sc-value">${c.value}</div>
+            <div class="sc-sub">${c.sub}</div>
+        </div>
+    `).join('');
+}
+
+// ── Bus Performance ──────────────────────────────────────
+async function loadBusPerf(){
+    if(!analyticsData) return;
+
+    const selectedBus = document.getElementById('analyticsBusSelect').value;
+
+    // Fetch current target KMLs from the BusName table so rating matches trip records
+    const busRows = await fetch('/admin/buses').then(r=>r.json());
+    const targetMap = {};  // busName -> targetKML (null if not set)
+    busRows.forEach(b => { targetMap[b.BusNames] = b.Target_KML ?? null; });
+
+    // ─ All-buses KML bar chart ─
+    const busStats = {};
+    analyticsData.forEach(r=>{
+        const b = r.BusName||'Unknown';
+        if(!busStats[b]) busStats[b]={km:0,fuel:0,goodCount:0,totalCount:0};
+        busStats[b].km   += Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
+        busStats[b].fuel += r.Fuel_Used||0;
+        busStats[b].totalCount += 1;
+        if((r['Good/Bad']||'').toLowerCase()==='good') busStats[b].goodCount += 1;
+    });
+    const busSorted = Object.entries(busStats)
+        .map(([name,s])=>({
+            name,
+            kml:       s.fuel>0 ? +(s.km/s.fuel).toFixed(2) : 0,
+            targetKml: targetMap[name] ?? null,
+            goodCount: s.goodCount,
+            totalCount:s.totalCount
+        }))
+        .sort((a,b)=>b.kml-a.kml);
+
+    // Bar colours: green if avg kml >= target, red if below, grey if no target
+    const barLabels = busSorted.map(b=>b.name);
+    const barData   = busSorted.map(b=>b.kml);
+    const barColors = busSorted.map(b=>{
+        if(b.targetKml === null) return 'rgba(100,116,125,.55)';
+        return b.kml >= b.targetKml ? 'rgba(46,125,50,.75)' : 'rgba(198,40,40,.65)';
+    });
+
+    if(chartBusKml) chartBusKml.destroy();
+    chartBusKml = new Chart(document.getElementById('chartBusKml'),{
+        type:'bar',
+        data:{ labels:barLabels, datasets:[{ label:'Avg KM/L', data:barData, backgroundColor:barColors, borderRadius:2 }] },
+        options:{
+            responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.formattedValue} km/l`}} },
+            scales:{
+                x:{ ticks:{font:{family:'Source Code Pro',size:10}} },
+                y:{ beginAtZero:true, ticks:{font:{family:'Source Code Pro',size:10}},
+                    title:{display:true,text:'KM/L',font:{family:'Barlow',size:10}} }
+            }
+        }
+    });
+
+    // ─ Line chart: efficiency over time ─
+    const lineSource = selectedBus
+        ? analyticsData.filter(r=>r.BusName===selectedBus)
+        : analyticsData;
+
+    const dayMap = {};
+    lineSource.forEach(r=>{
+        if(!r.Date) return;
+        const km = Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
+        const fl = r.Fuel_Used||0;
+        if(!dayMap[r.Date]) dayMap[r.Date]={km:0,fuel:0};
+        dayMap[r.Date].km   += km;
+        dayMap[r.Date].fuel += fl;
+    });
+    const sortedDays = Object.keys(dayMap).sort();
+    const lineData   = sortedDays.map(d=>{
+        const s = dayMap[d];
+        return s.fuel>0 ? +(s.km/s.fuel).toFixed(2) : null;
+    });
+
+    if(chartEffLine) chartEffLine.destroy();
+    chartEffLine = new Chart(document.getElementById('chartEffLine'),{
+        type:'line',
+        data:{
+            labels:sortedDays,
+            datasets:[{
+                label:'KM/L', data:lineData,
+                borderColor:'rgba(26,95,168,.85)', backgroundColor:'rgba(26,95,168,.08)',
+                pointRadius:3, pointBackgroundColor:'rgba(26,95,168,.9)',
+                tension:.3, fill:true, spanGaps:true
+            }]
+        },
+        options:{
+            responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.formattedValue} km/l`}} },
+            scales:{
+                x:{ ticks:{font:{family:'Source Code Pro',size:9}, maxTicksLimit:10} },
+                y:{ beginAtZero:true, ticks:{font:{family:'Source Code Pro',size:10}} }
+            }
+        }
+    });
+
+    // ─ Bus ranking table ─
+    const maxKml = Math.max(...busSorted.map(b=>b.kml));
+    document.getElementById('busRankTable').innerHTML = `
+        <div class="grid-wrapper" style="max-height:320px">
+        <table class="rank-table">
+            <thead><tr><th>#</th><th>Bus</th><th>Avg KM/L</th><th>Efficiency</th><th>Rating</th></tr></thead>
+            <tbody>
+            ${busSorted.map((b,i)=>{
+                const pct   = maxKml>0 ? (b.kml/maxKml*100) : 0;
+                const badge = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+
+                let rating, ratingColor;
+                if(b.targetKml === null){
+                    rating      = 'No Target Set';
+                    ratingColor = 'var(--muted)';
+                } else if(b.kml >= b.targetKml){
+                    rating      = 'Good';
+                    ratingColor = 'var(--success)';
+                } else {
+                    rating      = 'Bad';
+                    ratingColor = 'var(--danger)';
+                }
+
+                return `<tr>
+                    <td><span class="rank-badge ${badge}">${i+1}</span></td>
+                    <td>${b.name}</td>
+                    <td><strong>${b.kml.toFixed(2)}</strong></td>
+                    <td><span class="kml-bar" style="width:${Math.max(pct,4)}%"></span></td>
+                    <td style="color:${ratingColor};font-weight:700;font-size:11px">${rating}</td>
+                </tr>`;
+            }).join('')}
+            </tbody>
+        </table></div>`;
+
+    // ─ Driver efficiency on selected bus ─
+    if(!selectedBus){
+        document.getElementById('busDriverTable').innerHTML='<div class="analytics-loading" style="min-height:60px">Select a bus to see per-driver breakdown</div>';
+        return;
+    }
+    const busTarget = targetMap[selectedBus] ?? null;
+    const filteredRows = analyticsData.filter(r=>r.BusName===selectedBus);
+    const dStats = {};
+    filteredRows.forEach(r=>{
+        const d = r.Driver||'Unknown';
+        if(!dStats[d]) dStats[d]={km:0,fuel:0,trips:0};
+        dStats[d].km    += Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
+        dStats[d].fuel  += r.Fuel_Used||0;
+        dStats[d].trips += 1;
+    });
+    const dSorted = Object.entries(dStats)
+        .map(([name,s])=>({name, kml: s.fuel>0?+(s.km/s.fuel).toFixed(2):0, km:s.km, trips:s.trips}))
+        .sort((a,b)=>b.kml-a.kml);
+
+    const maxD = Math.max(...dSorted.map(d=>d.kml));
+    document.getElementById('busDriverTable').innerHTML = `
+        <div class="grid-wrapper" style="max-height:320px">
+        <table class="rank-table">
+            <thead><tr><th>#</th><th>Driver</th><th>Avg KM/L</th><th>Total KM</th><th>Trips</th><th>Efficiency</th></tr></thead>
+            <tbody>
+            ${dSorted.map((d,i)=>{
+                const pct   = maxD>0?(d.kml/maxD*100):0;
+                const badge = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+                const isGood = busTarget !== null ? d.kml >= busTarget : null;
+                const barColor = isGood === null ? 'var(--muted)' : isGood ? 'var(--success)' : 'var(--danger)';
+                return `<tr>
+                    <td><span class="rank-badge ${badge}">${i+1}</span></td>
+                    <td>${d.name}</td>
+                    <td><strong>${d.kml.toFixed(2)}</strong></td>
+                    <td>${fmt(d.km,0)}</td>
+                    <td>${d.trips}</td>
+                    <td><span class="kml-bar" style="width:${Math.max(pct,4)}%;background:${barColor}"></span></td>
+                </tr>`;
+            }).join('')}
+            </tbody>
+        </table></div>`;
+}
+
+// ── Driver Performance ───────────────────────────────────
+function renderDriverPerf(){
+    if(!analyticsData){ document.getElementById('driver-perf-cards').innerHTML='<div class="analytics-loading">Loading…</div>'; return; }
+
+    const dStats = {};
+    analyticsData.forEach(r=>{
+        const d = r.Driver||'Unknown';
+        if(!dStats[d]) dStats[d]={km:0,fuel:0,trips:0};
+        dStats[d].km    += Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
+        dStats[d].fuel  += r.Fuel_Used||0;
+        dStats[d].trips += 1;
+    });
+
+    const drivers = Object.entries(dStats)
+        .map(([name,s])=>({name, km:s.km, fuel:s.fuel, trips:s.trips, kml: s.fuel>0?s.km/s.fuel:null}))
+        .sort((a,b)=>(b.kml||0)-(a.kml||0));
+
+    if(!drivers.length){
+        document.getElementById('driver-perf-cards').innerHTML='<div class="analytics-loading">No driver data available.</div>';
+        return;
+    }
+
+    const maxKml = Math.max(...drivers.map(d=>d.kml||0));
+
+    document.getElementById('driver-perf-cards').innerHTML = drivers.map((d,i)=>{
+        const pct = maxKml>0 && d.kml ? (d.kml/maxKml*100) : 0;
+        const cls = d.kml>=8?'good':d.kml>=6?'':'bad';
+        const rankLabel = i===0?'🥇 Best':i===1?'🥈':'';
+        return `
+        <div class="driver-card">
+            <div class="dc-name">${d.name} <span style="font-size:11px;color:var(--muted);font-weight:400">${rankLabel}</span></div>
+            <div class="dc-stats">
+                <div class="dc-stat">
+                    <span class="dc-stat-label">Avg KM/L</span>
+                    <span class="dc-stat-val" style="color:${d.kml>=8?'var(--success)':d.kml>=6?'var(--warn)':'var(--danger)'}">${fmt(d.kml)}</span>
+                </div>
+                <div class="dc-stat">
+                    <span class="dc-stat-label">Total KM</span>
+                    <span class="dc-stat-val">${fmt(d.km,0)}</span>
+                </div>
+                <div class="dc-stat">
+                    <span class="dc-stat-label">Trips</span>
+                    <span class="dc-stat-val">${d.trips}</span>
+                </div>
+                <div class="dc-stat">
+                    <span class="dc-stat-label">Total Fuel</span>
+                    <span class="dc-stat-val">${fmt(d.fuel,0)} L</span>
+                </div>
+            </div>
+            <div class="dc-perf-bar">
+                <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)">Efficiency Score</div>
+                <div class="dc-perf-track"><div class="dc-perf-fill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+reloadAll();
+</script>
+</body>
+</html>
