@@ -111,6 +111,29 @@
         box-shadow: 0 0 0 2px rgba(26,95,168,0.15);
     }
     .inline-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .checkbox-field {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 10px;
+    }
+    .checkbox-field:last-of-type { margin-bottom: 12px; }
+    .checkbox-field input[type="checkbox"] {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--accent);
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .checkbox-field label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+        cursor: pointer;
+        margin: 0;
+    }
     .btn-enter {
         display: block;
         margin: 14px auto 0;
@@ -228,6 +251,55 @@
         font-family: 'Source Code Pro', monospace;
         color: var(--muted);
     }
+
+    /* ── SIDEBAR TABS ── */
+    .sidebar-tabs { display:flex; gap:0; margin-bottom:12px; border-bottom:2px solid var(--border); }
+    .sidebar-tab { flex:1; padding:6px 0; font-family:'Barlow',sans-serif; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border); border-bottom:none; background:var(--panel); color:var(--muted); cursor:pointer; text-align:center; transition:all .12s; border-radius:2px 2px 0 0; }
+    .sidebar-tab.active { background:var(--white); color:var(--accent); }
+    .sidebar-tab:hover:not(.active) { background:#bcc2c8; }
+    .sidebar-pane { display:none; flex-direction:column; gap:12px; }
+    .sidebar-pane.active { display:flex; }
+
+    /* ── SERVICE TAB ── */
+    .service-cards { display:flex; flex-direction:column; gap:8px; }
+    .service-category { display:flex; flex-direction:column; gap:6px; }
+    .service-category + .service-category { margin-top:12px; }
+    .service-category-title { display:flex; align-items:center; gap:7px; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+    .service-category-title::before { content:''; width:7px; height:7px; border-radius:50%; background:var(--border); }
+    .service-category-urgent .service-category-title { color:var(--bad); }
+    .service-category-urgent .service-category-title::before { background:var(--bad); }
+    .service-category-upcoming .service-category-title { color:#e65100; }
+    .service-category-upcoming .service-category-title::before { background:#e65100; }
+    .service-category-fine .service-category-title { color:var(--good); }
+    .service-category-fine .service-category-title::before { background:var(--good); }
+    .service-card { background:var(--white); border:1px solid var(--border); border-left:4px solid var(--border); border-radius:2px; padding:10px 12px; }
+    .service-card.card-urgent { border-left-color:var(--bad); }
+    .service-card.card-upcoming { border-left-color:#e65100; }
+    .service-card.card-fine { border-left-color:var(--good); }
+    .service-card.card-empty { border-left-color:var(--muted); }
+    .service-card-header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:7px; }
+    .service-card-bus { font-size:14px; font-weight:700; color:var(--dark); }
+    .service-card-category { font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .card-urgent .service-card-category { color:var(--bad); }
+    .card-upcoming .service-card-category { color:#e65100; }
+    .card-fine .service-card-category { color:var(--good); }
+    .card-empty .service-card-category { color:var(--muted); }
+    .service-card-row { display:flex; justify-content:space-between; gap:8px; font-size:10px; color:var(--muted); }
+    .service-card-value { font-family:'Source Code Pro',monospace; font-size:11px; font-weight:600; color:var(--text); text-align:right; }
+    .service-main-view { display:none; flex-direction:column; flex:1; min-height:0; }
+    .service-main-view.active { display:flex; }
+    .service-main-header { display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:0 4px 10px; border-bottom:2px solid var(--border); margin-bottom:10px; flex-shrink:0; }
+    .service-main-title { font-size:24px; font-weight:700; color:var(--dark); }
+    .service-main-meta { font-size:10px; font-family:'Source Code Pro',monospace; color:var(--muted); letter-spacing:.06em; }
+    .service-main-scroll { flex:1; overflow:auto; border:1px solid var(--border); border-radius:2px; background:var(--group-bg); padding:16px; }
+    .service-main-cards { display:grid; grid-template-columns:repeat(3, minmax(240px, 1fr)); align-items:start; gap:18px; }
+    .service-main-cards .service-category { display:flex; flex-direction:column; gap:6px; }
+    .service-main-cards .service-category + .service-category { margin-top:0; }
+    .service-main-cards .service-category-title { font-size:11px; margin-bottom:2px; }
+    .service-main-cards .service-card { padding:14px 16px; }
+    .service-main-cards .service-card-bus { font-size:16px; }
+    .service-main-cards .service-card-row { font-size:11px; }
+    .service-main-cards .service-card-value { font-size:12px; }
 </style>
 </head>
 <body>
@@ -238,6 +310,14 @@
 
     <!-- LEFT SIDEBAR -->
     <div class="sidebar">
+
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" onclick="switchSidebarTab('entry', this)">Entry</button>
+            <button class="sidebar-tab" onclick="switchSidebarTab('service', this)">Service</button>
+        </div>
+
+        <!-- ── ENTRY PANE ── -->
+        <div id="pane-entry" class="sidebar-pane active">
 
         <div class="group-box">
             <div class="legend">Bus Details</div>
@@ -283,14 +363,56 @@
                 </div>
             </div>
 
+            <div class="field">
+                <label>Select Tank</label>
+                <select id="tankSelect">
+                    <option value="">--- Select Tank ---</option>
+                </select>
+            </div>
+
             <button class="btn-enter" onclick="submitEntry()">Enter</button>
         </div>
+
+        <div class="group-box">
+            <div class="legend">Refuel Tank</div>
+
+            <div class="field">
+                <label>Select Tank</label>
+                <select id="refuelTankSelect">
+                    <option value="">--- Select Tank ---</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Fuel Refuelled</label>
+                <input type="number" id="txtRefuelAmount" placeholder="L">
+            </div>
+
+            <div class="checkbox-field">
+                <input type="checkbox" id="chkFillSelected">
+                <label for="chkFillSelected">Fill selected tank to full</label>
+            </div>
+
+            <div class="checkbox-field">
+                <input type="checkbox" id="chkFillAll">
+                <label for="chkFillAll">Fill all tanks to full</label>
+            </div>
+
+            <button class="btn-enter" onclick="submitRefuel()">Refuel</button>
+        </div>
+
+        </div><!-- /pane-entry -->
+
+        <!-- ── SERVICE PANE ── -->
+        <div id="pane-service" class="sidebar-pane">
+        </div><!-- /pane-service -->
 
     </div>
 
     <!-- MAIN AREA -->
     <div class="main">
 
+        <div id="recordsView" class="main">
         <div class="bus-header">
             <div class="bus-name" id="busName">All Buses</div>
             <div class="bus-meta" id="busMeta">SELECT A BUS TO VIEW RECORDS</div>
@@ -322,6 +444,19 @@
             <div class="status-bar" id="statusBar">—</div>
             <button class="btn-nav" id="btnNext" onclick="navigate(1)" disabled>Next &#9654;</button>
         </div>
+    </div>
+
+    <div id="serviceMainView" class="service-main-view">
+            <div class="service-main-header">
+                <div class="service-main-title">Service Schedule</div>
+                <div class="service-main-meta">NEXT SERVICE BY BUS</div>
+            </div>
+            <div class="service-main-scroll">
+                <div id="serviceCards" class="service-cards service-main-cards">
+                    <div class="empty-state">Loading service cards...</div>
+                </div>
+            </div>
+        </div>
 
     </div>
 </div>
@@ -329,6 +464,7 @@
 <script>
     let allBuses = [];
     let currentBusIndex = -1;
+    let lastKnownOdometer = NaN;
 
     // Load seaters
     fetch('/seaters')
@@ -408,6 +544,42 @@
             console.error(err);
         });
 
+    // Load tanks
+    fetch('/tanks')
+        .then(r => {
+            if (!r.ok) throw new Error('GET /tanks returned ' + r.status);
+            return r.json();
+        })
+        .then(data => {
+            ['tankSelect', 'refuelTankSelect'].forEach(id => {
+                const sel = document.getElementById(id);
+                data.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    sel.appendChild(opt);
+                });
+            });
+        })
+        .catch(err => {
+            setStatus('ERROR loading tanks: ' + err.message);
+            console.error(err);
+        });
+
+    // Refuel checkbox interactions
+    document.getElementById('chkFillAll').addEventListener('change', function () {
+        const fillAll = this.checked;
+        const chkSelected = document.getElementById('chkFillSelected');
+        if (fillAll) chkSelected.checked = false;
+        chkSelected.disabled = fillAll;
+        document.getElementById('refuelTankSelect').disabled = fillAll;
+        document.getElementById('txtRefuelAmount').disabled = fillAll;
+    });
+
+    document.getElementById('chkFillSelected').addEventListener('change', function () {
+        document.getElementById('txtRefuelAmount').disabled = this.checked;
+    });
+
     // Bus selection change
     document.getElementById('busSelect')
 .addEventListener('change', async function () {
@@ -453,6 +625,7 @@
     );
 
     const latestData = await latestResponse.json();
+    lastKnownOdometer = parseFloat(latestData.currentOdometer);
 
     document.getElementById('busMeta').textContent =
         `Driver: ${latestData.driverName}
@@ -590,11 +763,12 @@
         const driver   = document.getElementById('driverSelect').value;
         const odometer = document.getElementById('txtOdometer').value;
         const fuel     = document.getElementById('txtFuel').value;
+        const tank     = document.getElementById('tankSelect').value;
         const startOdoEl = document.getElementById('txtStartOdometer');
         const startOdo = startOdoEl.value;
         const startFieldVisible = document.getElementById('startOdometerField').style.display !== 'none';
 
-        if (!bus || !driver || !odometer || !fuel) {
+        if (!bus || !driver || !odometer || !fuel || !tank) {
             alert('Please fill in all fields before submitting.');
             return;
         }
@@ -604,11 +778,22 @@
             return;
         }
 
+        // Figure out the previous odometer reading so we can catch a
+        // negative-distance trip before it's even sent to the server.
+        const previousOdometer = startFieldVisible && startOdo
+        ? parseFloat(startOdo)
+        : parseFloat(lastKnownOdometer);
+        if (!isNaN(previousOdometer) && parseFloat(odometer) < previousOdometer) {
+            alert(`Current odometer (${odometer}) can't be less than the previous odometer (${previousOdometer}). Please check the reading.`);
+            return;
+        }
+
         const payload = {
             busName: bus,
             driverName: driver,
             currentOdometer: parseFloat(odometer),
-            fuelUsed: parseFloat(fuel)
+            fuelUsed: parseFloat(fuel),
+            tankName: tank
         };
         if (startFieldVisible && startOdo) {
             payload.startOdometer = parseFloat(startOdo);
@@ -639,6 +824,8 @@
         .then(r => r.json())
         .then(data => {
 
+            lastKnownOdometer = parseFloat(data.currentOdometer);
+
             document.getElementById('busMeta').textContent =
                 `Driver: ${data.driverName}
                  | Current Odometer:
@@ -655,8 +842,103 @@
         .catch(() => setStatus('Failed to save entry.'));
     }
 
+    function submitRefuel() {
+        const tank        = document.getElementById('refuelTankSelect').value;
+        const amount      = document.getElementById('txtRefuelAmount').value;
+        const fillSelected = document.getElementById('chkFillSelected').checked;
+        const fillAll      = document.getElementById('chkFillAll').checked;
+
+        if (!fillAll && !tank) {
+            alert('Please select a tank.');
+            return;
+        }
+
+        if (!fillAll && !fillSelected && !amount) {
+            alert('Please enter the amount of fuel refuelled, or tick a fill option.');
+            return;
+        }
+
+        const payload = { fillSelected, fillAll };
+        if (!fillAll) payload.tankName = tank;
+        if (!fillAll && !fillSelected) payload.fuelAmount = parseFloat(amount);
+
+        fetch('/tanks/refuel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+
+            setStatus(fillAll ? 'All tanks filled to full.' : `${tank} refuelled — now at ${data.level} L.`);
+
+            document.getElementById('txtRefuelAmount').value = '';
+            document.getElementById('chkFillSelected').checked = false;
+            document.getElementById('chkFillAll').checked = false;
+            document.getElementById('refuelTankSelect').disabled = false;
+            document.getElementById('txtRefuelAmount').disabled = false;
+            document.getElementById('chkFillSelected').disabled = false;
+        })
+        .catch(() => setStatus('Failed to save refuel.'));
+    }
+
     function setStatus(msg) {
         document.getElementById('statusBar').textContent = msg;
+    }
+
+    // ── SIDEBAR TAB SWITCHER ─────────────────────────────────
+    function switchSidebarTab(name, btn){
+        document.querySelectorAll('.sidebar-pane').forEach(p=>p.classList.remove('active'));
+        document.querySelectorAll('.sidebar-tab').forEach(b=>b.classList.remove('active'));
+        document.getElementById('pane-'+name).classList.add('active');
+        btn.classList.add('active');
+        const showingService = name === 'service';
+        document.getElementById('recordsView').style.display = showingService ? 'none' : 'flex';
+        document.getElementById('serviceMainView').classList.toggle('active', showingService);
+        if(showingService) loadServiceCards();
+    }
+
+    // ── SERVICE TAB ──────────────────────────────────────────
+    async function loadServiceCards(){
+        const container = document.getElementById('serviceCards');
+        container.innerHTML = '<div class="empty-state">Loading service cards...</div>';
+        try {
+            const response = await fetch('/analytics/service-cards');
+            if(!response.ok) throw new Error('Unable to load service cards');
+            const cards = await response.json();
+            if(!cards.length){
+                container.innerHTML = '<div class="empty-state">No buses found.</div>';
+                return;
+            }
+            const categories = ['Urgent', 'Upcoming', 'Fine'];
+            container.innerHTML = categories.map(category => {
+                const categoryClass = category.toLowerCase();
+                const categoryCards = cards.filter(card => card.category === category);
+                return `
+                    <section class="service-category service-category-${categoryClass}">
+                        <div class="service-category-title">${category} <span>(${categoryCards.length})</span></div>
+                        ${categoryCards.length ? categoryCards.map(card => {
+                            const distance = card.distanceToService === null ? 'No odometer data' : `${card.distanceToService} km`;
+                            const serviceType = card.serviceType || 'Waiting for first trip';
+                            return `
+                                <div class="service-card card-${categoryClass}">
+                                    <div class="service-card-header">
+                                        <span class="service-card-bus">${card.busName}</span>
+                                        <span class="service-card-category">${card.category}</span>
+                                    </div>
+                                    <div class="service-card-row"><span>Distance to next service</span><span class="service-card-value">${distance}</span></div>
+                                    <div class="service-card-row"><span>Service needed</span><span class="service-card-value">${serviceType}</span></div>
+                                </div>`;
+                        }).join('') : '<div class="empty-state">No buses in this category.</div>'}
+                    </section>`;
+            }).join('');
+        } catch(error){
+            container.innerHTML = '<div class="empty-state">Failed to load service cards.</div>';
+        }
     }
 </script>
 

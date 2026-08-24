@@ -20,6 +20,10 @@ body { font-family:'Barlow',sans-serif; background:var(--bg); color:var(--text);
 .topbar-title { flex:1; text-align:center; font-weight:600; opacity:.8; }
 .topbar a { color:#7eb3f0; text-decoration:none; font-size:10px; letter-spacing:.1em; border:1px solid #7eb3f0; padding:3px 10px; border-radius:2px; transition:all .15s; }
 .topbar a:hover { background:#7eb3f0; color:var(--dark); }
+.page-nav { display:flex; align-items:center; gap:8px; padding:6px 14px; background:var(--dark); flex-shrink:0; }
+.page-nav a { color:#9fb8d6; text-decoration:none; font-family:'Source Code Pro',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; border:1px solid #4a5560; padding:3px 10px; border-radius:2px; transition:all .15s; }
+.page-nav a:hover { background:#4a5560; color:white; }
+.page-nav a.current { background:var(--accent); color:white; border-color:var(--accent); }
 .page { padding:20px; display:flex; flex-direction:column; gap:20px; max-width:1200px; margin:0 auto; width:100%; }
 .tabs { display:flex; gap:0; border-bottom:2px solid var(--border); }
 .tab-btn { padding:8px 22px; font-family:'Barlow',sans-serif; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; border:1px solid var(--border); border-bottom:none; background:var(--panel); color:var(--muted); cursor:pointer; margin-right:4px; border-radius:2px 2px 0 0; transition:all .12s; }
@@ -129,6 +133,7 @@ tbody td input, tbody td select { padding:3px 6px; font-family:'Source Code Pro'
         <button class="tab-btn active" onclick="switchTab('buses')">Buses</button>
         <button class="tab-btn" onclick="switchTab('drivers')">Drivers</button>
         <button class="tab-btn" onclick="switchTab('records')">Trip Records</button>
+        <button class="tab-btn" onclick="switchTab('service')">Service</button>
         <button class="tab-btn" onclick="switchTab('analytics')">Analytics</button>
     </div>
 
@@ -157,6 +162,30 @@ tbody td input, tbody td select { padding:3px 6px; font-family:'Source Code Pro'
         <div class="group-box">
             <div class="legend">All Buses</div>
             <div class="grid-wrapper"><table><thead id="bus-thead"></thead><tbody id="bus-tbody"></tbody></table></div>
+        </div>
+        <div class="group-box">
+            <div class="legend">Service History</div>
+            <div class="search-bar" style="margin-bottom:10px">
+                <div class="field"><label>Filter by Bus</label><select id="svcHistoryFilter" onchange="loadServiceHistory()"><option value="">All Buses</option></select></div>
+                <span class="record-count" id="svcHistoryCount">—</span>
+            </div>
+            <div class="grid-wrapper" style="max-height:320px">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Bus</th>
+                            <th>Date Serviced</th>
+                            <th>Odometer at Service</th>
+                            <th>Comments</th>
+                            <th class="col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="svc-history-tbody">
+                        <tr><td colspan="6"><div class="empty-state">Loading…</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -220,12 +249,40 @@ tbody td input, tbody td select { padding:3px 6px; font-family:'Source Code Pro'
         </div>
     </div>
 
+        <!-- ===== SERVICE ===== -->   
+    <div id="tab-service" class="tab-panel">
+        <div class="group-box">
+            <div class="legend">Record Service or Repair</div>
+            <div class="form-row">
+                <div class="field"><label>Record Type</label><select id="serviceRecordType" onchange="toggleServiceForm()"><option value="Service">Service</option><option value="Repair">Repair</option></select></div>
+                <div class="field"><label>Bus</label><select id="serviceBusSelect"></select></div>
+                <div class="field"><label>Current Odometer</label><input type="number" id="serviceOdometer" min="0" step="0.1"></div>
+                <div class="field" id="serviceTypeField"><label>Service Type</label><select id="serviceType"><option value="Normal">Normal</option><option value="Gear Box Oil">Gear Box Oil</option><option value="Antifreeze">Antifreeze</option></select></div>
+                <div class="field"><label id="serviceCommentsLabel">Comments</label><input type="text" id="serviceComments" placeholder="Work completed or notes"></div>
+                <button class="btn btn-primary" onclick="addServiceHistory()">Record</button>
+            </div>
+        </div>
+        <div class="group-box">
+            <div class="legend">Service / Repair History</div>
+            <div class="search-bar" style="margin-bottom:10px">
+                <div class="field"><label>Type</label><select id="serviceHistoryType" onchange="loadServiceHistory()"><option value="">All</option><option value="Service">Service</option><option value="Repair">Repair</option></select></div>
+                <div class="field"><label>Bus</label><select id="serviceHistoryBus" onchange="loadServiceHistory()"><option value="">All Buses</option></select></div>
+                <span class="record-count" id="serviceHistoryCount">—</span>
+            </div>
+            <div class="grid-wrapper" style="max-height:360px">
+                <table><thead><tr><th>#</th><th>Type</th><th>Bus</th><th>Date</th><th>Odometer</th><th>Service / Repair Type</th><th>Comments</th><th class="col-actions">Actions</th></tr></thead>
+                <tbody id="service-history-tbody"><tr><td colspan="8"><div class="empty-state">Loading...</div></td></tr></tbody></table>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== ANALYTICS ===== -->
     <div id="tab-analytics" class="tab-panel">
         <div class="sub-tabs">
             <button class="sub-tab-btn active" onclick="switchSubTab('fleet')">Fleet Overview</button>
             <button class="sub-tab-btn" onclick="switchSubTab('busperf')">Bus Performance</button>
             <button class="sub-tab-btn" onclick="switchSubTab('driverperf')">Driver Performance</button>
+            <button class="sub-tab-btn" onclick="switchSubTab('tanks')">Tanks</button>
         </div>
 
         <!-- ── FLEET OVERVIEW ── -->
@@ -245,9 +302,13 @@ tbody td input, tbody td select { padding:3px 6px; font-family:'Source Code Pro'
         <!-- ── BUS PERFORMANCE ── -->
         <div id="subtab-busperf" class="sub-tab-panel">
             <div class="group-box">
-                <div class="legend">Select Bus</div>
+                <div class="legend">Filter</div>
                 <div class="bus-select-row">
-                    <label>Bus</label>
+                    <label>Seater Category</label>
+                    <select id="analyticsSeaterBus" onchange="onBusSeaterChange()">
+                        <option value="">All Seater Categories</option>
+                    </select>
+                    <label style="margin-left:12px">Bus</label>
                     <select id="analyticsBusSelect" onchange="loadBusPerf()">
                         <option value="">All Buses</option>
                     </select>
@@ -275,8 +336,42 @@ tbody td input, tbody td select { padding:3px 6px; font-family:'Source Code Pro'
 
         <!-- ── DRIVER PERFORMANCE ── -->
         <div id="subtab-driverperf" class="sub-tab-panel">
+            <div class="group-box">
+                <div class="legend">Filter</div>
+                <div class="bus-select-row">
+                    <label>Seater Category</label>
+                    <select id="analyticsSeaterDriver" onchange="renderDriverPerf()">
+                        <option value="">All Seater Categories</option>
+                    </select>
+                </div>
+            </div>
+            <div class="chart-row" style="margin-bottom:0">
+                <div class="chart-box full">
+                    <div class="chart-title">Average KM/L per Driver</div>
+                    <div class="chart-canvas-wrap"><canvas id="chartDriverKml" height="220"></canvas></div>
+                </div>
+            </div>
             <div id="driver-perf-cards" class="driver-cards-grid">
                 <div class="analytics-loading">Loading driver data…</div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                <button class="btn btn-primary" onclick="printDriverPerf()" style="display:flex;align-items:center;gap:6px">
+                    🖨&nbsp;Print Report
+                </button>
+            </div>
+        </div>
+
+        <!-- ── TANKS ── -->
+        <div id="subtab-tanks" class="sub-tab-panel">
+            <div class="chart-row" style="margin-bottom:0">
+                <div class="chart-box full">
+                    <div class="chart-title">Fuel Level per Tank (Litres)</div>
+                    <div class="chart-canvas-wrap"><canvas id="chartTankLevels" height="220"></canvas></div>
+                </div>
+            </div>
+            <div class="group-box">
+                <div class="legend">Tank Status</div>
+                <div id="tankStatusTable"><div class="analytics-loading">Loading tank data…</div></div>
             </div>
         </div>
     </div>
@@ -426,6 +521,8 @@ async function loadBuses(){
         o.value=o.textContent=b.BusNames; fb.appendChild(o);
     });
     fb.value = prev;
+
+    populateServiceBusSelectors(rows);
 }
 
 function renderBusGrid(rows){
@@ -530,6 +627,87 @@ async function deleteBus(id){
     if(!confirm(`Delete bus "${bus?.BusNames}"?`)) return;
     const r = await fetch(`/admin/bus/${id}`,{method:'DELETE'});
     r.ok ? (toast('Bus deleted'), loadBuses()) : toast('Error',false);
+}
+
+// ─── SERVICE / REPAIR HISTORY ────────────────────────────
+function populateServiceBusSelectors(rows){
+    const selectors = [document.getElementById('serviceBusSelect'), document.getElementById('serviceHistoryBus')];
+    selectors.forEach((select, index)=>{
+        if(!select) return;
+        const previous = select.value;
+        select.innerHTML = index === 1 ? '<option value="">All Buses</option>' : '';
+        rows.forEach(bus=>{
+            const option = document.createElement('option');
+            option.value = option.textContent = bus.BusNames;
+            select.appendChild(option);
+        });
+        select.value = previous;
+    });
+    loadServiceHistory();
+}
+
+function toggleServiceForm(){
+    const isService = document.getElementById('serviceRecordType').value === 'Service';
+    document.getElementById('serviceTypeField').style.display = isService ? '' : 'none';
+    document.getElementById('serviceCommentsLabel').textContent = isService ? 'Comments' : 'Repair Comments';
+    document.getElementById('serviceComments').placeholder = isService ? 'Work completed or notes' : 'Describe the repair';
+}
+
+async function addServiceHistory(){
+    const recordType = document.getElementById('serviceRecordType').value;
+    const body = {
+        recordType,
+        busName: document.getElementById('serviceBusSelect').value,
+        currentOdometer: document.getElementById('serviceOdometer').value,
+        serviceType: recordType === 'Service' ? document.getElementById('serviceType').value : 'Repair',
+        comments: document.getElementById('serviceComments').value
+    };
+    const response = await fetch('/admin/service-history', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    if(!response.ok){
+        const data = await response.json();
+        toast(data.error || 'Error recording entry', false);
+        return;
+    }
+    toast(`${recordType} recorded`);
+    document.getElementById('serviceOdometer').value = '';
+    document.getElementById('serviceComments').value = '';
+    loadServiceHistory();
+}
+
+async function loadServiceHistory(){
+    const type = document.getElementById('serviceHistoryType')?.value || '';
+    const bus = document.getElementById('serviceHistoryBus')?.value || '';
+    const params = new URLSearchParams();
+    if(type) params.set('record_type', type);
+    if(bus) params.set('bus', bus);
+    const query = params.toString();
+    const rows = await fetch('/admin/service-history' + (query ? '?' + query : '')).then(r=>r.json());
+    const tbody = document.getElementById('service-history-tbody');
+    document.getElementById('serviceHistoryCount').textContent = `${rows.length} record${rows.length!==1?'s':''}`;
+    if(!rows.length){
+        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">No service or repair records found</div></td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(row=>`
+        <tr>
+            <td>${row.ID}</td>
+            <td style="font-weight:700;color:${row.RecordType==='Repair'?'var(--danger)':'var(--success)'}">${row.RecordType||'Service'}</td>
+            <td>${row.BusName||'—'}</td>
+            <td>${row.LastServiced||'—'}</td>
+            <td style="font-weight:600">${row.Odometer_At_Service ?? '—'}${row.Odometer_At_Service != null ? ' km' : ''}</td>
+            <td>${row.ServiceType||'—'}</td>
+            <td style="color:var(--muted)">${row.Comments||'—'}</td>
+            <td><div class="actions-cell"><button class="btn btn-danger btn-sm" onclick="deleteServiceRecord(${row.ID})">Delete</button></div></td>
+        </tr>
+    `).join('');
+}
+
+async function deleteServiceRecord(id){
+    if(!confirm(`Delete service or repair record #${id}?`)) return;
+    const response = await fetch(`/admin/service-history/${id}`, {method:'DELETE'});
+    response.ok ? (toast('History record deleted'), loadServiceHistory()) : toast('Error deleting record', false);
 }
 
 // ─── DRIVERS ─────────────────────────────────────────────
@@ -663,8 +841,10 @@ async function reloadAll(){
 // ════════════════════════════════════════════════════════
 
 let analyticsData = null;      // raw records cache
-let chartBusKml   = null;      // Chart.js instance
-let chartEffLine  = null;      // Chart.js instance
+let chartBusKml    = null;      // Chart.js instance
+let chartEffLine   = null;      // Chart.js instance
+let chartDriverKml = null;      // Chart.js instance
+let chartTankLevels = null;     // Chart.js instance
 let fleetPeriod   = 'week';
 
 // Sub-tab switcher
@@ -676,19 +856,56 @@ function switchSubTab(name){
     if(name==='fleet')      renderFleetOverview();
     if(name==='busperf')    loadBusPerf();
     if(name==='driverperf') renderDriverPerf();
+    if(name==='tanks')      renderTanks();
 }
 
-// One-time init: fetch all records, populate bus dropdown
+// One-time init: fetch all records + seater map, populate dropdowns
+let seaterMap    = {};  // busName -> seater
+let targetKmlMap = {};  // busName -> Target_KML
+
 async function initAnalytics(){
     if(analyticsData) return; // already loaded
-    const rows = await fetch('/admin/records').then(r=>r.json());
+    const [rows, busRows] = await Promise.all([
+        fetch('/admin/records').then(r=>r.json()),
+        fetch('/admin/buses').then(r=>r.json())
+    ]);
     analyticsData = rows;
-    // populate analytics bus select
-    const buses = [...new Set(rows.map(r=>r.BusName))].sort();
+
+    // Build seaterMap: busName -> seater, and targetKmlMap: busName -> Target_KML
+    seaterMap = {};
+    targetKmlMap = {};
+    busRows.forEach(b => {
+        seaterMap[b.BusNames]    = b.Seater;
+        targetKmlMap[b.BusNames] = b.Target_KML ?? null;
+    });
+
+    // Populate seater dropdowns
+    const seaters = [...new Set(busRows.map(b=>b.Seater).filter(Boolean))].sort();
+    ['analyticsSeaterBus','analyticsSeaterDriver'].forEach(id=>{
+        const sel = document.getElementById(id);
+        sel.innerHTML = '<option value="">All Seater Categories</option>'
+            + seaters.map(s=>`<option value="${s}">${s}</option>`).join('');
+    });
+
+    // Populate bus dropdown (all buses initially)
+    populateAnalyticsBusDropdown('');
+    renderFleetOverview();
+}
+
+function populateAnalyticsBusDropdown(seaterFilter){
+    const buses = [...new Set(analyticsData
+        .filter(r => !seaterFilter || seaterMap[r.BusName] === seaterFilter)
+        .map(r=>r.BusName))]
+        .sort();
     const sel = document.getElementById('analyticsBusSelect');
     sel.innerHTML = '<option value="">All Buses</option>'
         + buses.map(b=>`<option value="${b}">${b}</option>`).join('');
-    renderFleetOverview();
+}
+
+function onBusSeaterChange(){
+    const seater = document.getElementById('analyticsSeaterBus').value;
+    populateAnalyticsBusDropdown(seater);
+    loadBusPerf();
 }
 
 // Force-refresh analytics cache (called when records change)
@@ -806,7 +1023,13 @@ function renderFleetOverview(){
 async function loadBusPerf(){
     if(!analyticsData) return;
 
-    const selectedBus = document.getElementById('analyticsBusSelect').value;
+    const selectedBus   = document.getElementById('analyticsBusSelect').value;
+    const selectedSeater = document.getElementById('analyticsSeaterBus').value;
+
+    // Filter data by seater if set, then by bus if set
+    const baseData = selectedSeater
+        ? analyticsData.filter(r => seaterMap[r.BusName] === selectedSeater)
+        : analyticsData;
 
     // Fetch current target KMLs from the BusName table so rating matches trip records
     const busRows = await fetch('/admin/buses').then(r=>r.json());
@@ -815,7 +1038,7 @@ async function loadBusPerf(){
 
     // ─ All-buses KML bar chart ─
     const busStats = {};
-    analyticsData.forEach(r=>{
+    baseData.forEach(r=>{
         const b = r.BusName||'Unknown';
         if(!busStats[b]) busStats[b]={km:0,fuel:0,goodCount:0,totalCount:0};
         busStats[b].km   += Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
@@ -858,8 +1081,8 @@ async function loadBusPerf(){
 
     // ─ Line chart: efficiency over time ─
     const lineSource = selectedBus
-        ? analyticsData.filter(r=>r.BusName===selectedBus)
-        : analyticsData;
+        ? baseData.filter(r=>r.BusName===selectedBus)
+        : baseData;
 
     const dayMap = {};
     lineSource.forEach(r=>{
@@ -938,7 +1161,7 @@ async function loadBusPerf(){
         return;
     }
     const busTarget = targetMap[selectedBus] ?? null;
-    const filteredRows = analyticsData.filter(r=>r.BusName===selectedBus);
+    const filteredRows = baseData.filter(r=>r.BusName===selectedBus);
     const dStats = {};
     filteredRows.forEach(r=>{
         const d = r.Driver||'Unknown';
@@ -979,8 +1202,20 @@ async function loadBusPerf(){
 function renderDriverPerf(){
     if(!analyticsData){ document.getElementById('driver-perf-cards').innerHTML='<div class="analytics-loading">Loading…</div>'; return; }
 
+    const selectedSeater = document.getElementById('analyticsSeaterDriver').value;
+    const filteredData = selectedSeater
+        ? analyticsData.filter(r => seaterMap[r.BusName] === selectedSeater)
+        : analyticsData;
+
+    // Compute average Target_KML across buses in the filtered set
+    const relevantBuses = [...new Set(filteredData.map(r=>r.BusName))];
+    const targets = relevantBuses
+        .map(b => targetKmlMap[b])
+        .filter(t => t !== null && t !== undefined);
+    const avgTarget = targets.length ? targets.reduce((a,b)=>a+b,0)/targets.length : null;
+
     const dStats = {};
-    analyticsData.forEach(r=>{
+    filteredData.forEach(r=>{
         const d = r.Driver||'Unknown';
         if(!dStats[d]) dStats[d]={km:0,fuel:0,trips:0};
         dStats[d].km    += Math.max(0,(r.E_Odometer||0)-(r.B_Odometer||0));
@@ -993,23 +1228,95 @@ function renderDriverPerf(){
         .sort((a,b)=>(b.kml||0)-(a.kml||0));
 
     if(!drivers.length){
-        document.getElementById('driver-perf-cards').innerHTML='<div class="analytics-loading">No driver data available.</div>';
+        document.getElementById('driver-perf-cards').innerHTML='<div class="analytics-loading">No driver data for this filter.</div>';
+        if(chartDriverKml){ chartDriverKml.destroy(); chartDriverKml=null; }
         return;
     }
 
     const maxKml = Math.max(...drivers.map(d=>d.kml||0));
 
+    // Colour logic: green = at/above avgTarget, amber = within 15% below, red = more than 15% below
+    // Falls back to fixed thresholds if no target is set for any bus
+    function driverColor(kml){
+        if(kml==null) return 'rgba(100,116,125,.45)';
+        if(avgTarget !== null){
+            if(kml >= avgTarget)             return 'rgba(46,125,50,.75)';
+            if(kml >= avgTarget * 0.85)      return 'rgba(230,168,23,.75)';
+            return                                  'rgba(198,40,40,.65)';
+        }
+        // no target set — fall back to fixed
+        return kml>=8 ? 'rgba(46,125,50,.75)' : kml>=6 ? 'rgba(230,168,23,.75)' : 'rgba(198,40,40,.65)';
+    }
+    function driverColorCSS(kml){
+        if(kml==null) return 'var(--muted)';
+        if(avgTarget !== null){
+            if(kml >= avgTarget)        return 'var(--success)';
+            if(kml >= avgTarget * 0.85) return 'var(--warn)';
+            return                             'var(--danger)';
+        }
+        return kml>=8?'var(--success)':kml>=6?'var(--warn)':'var(--danger)';
+    }
+    function driverClass(kml){
+        if(kml==null) return '';
+        if(avgTarget !== null) return kml >= avgTarget ? 'good' : kml >= avgTarget*0.85 ? '' : 'bad';
+        return kml>=8?'good':kml>=6?'':'bad';
+    }
+
+    // ─ Bar chart ─
+    if(chartDriverKml) chartDriverKml.destroy();
+    const chartDatasets = [{
+        label:'Avg KM/L',
+        data:  drivers.map(d=>d.kml!=null ? +d.kml.toFixed(2) : 0),
+        backgroundColor: drivers.map(d=>driverColor(d.kml)),
+        borderRadius:2
+    }];
+    // Add target line annotation if avgTarget exists
+    const annotations = {};
+    if(avgTarget !== null){
+        annotations.targetLine = {
+            type:'line', yMin:avgTarget, yMax:avgTarget,
+            borderColor:'rgba(26,95,168,.7)', borderWidth:2, borderDash:[6,4],
+            label:{ content:`Avg Target: ${avgTarget.toFixed(2)} KM/L`, display:true,
+                    position:'end', color:'#1a5fa8',
+                    font:{family:'Source Code Pro',size:9} }
+        };
+    }
+    chartDriverKml = new Chart(document.getElementById('chartDriverKml'),{
+        type:'bar',
+        data:{ labels:drivers.map(d=>d.name), datasets:chartDatasets },
+        options:{
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+                legend:{display:false},
+                tooltip:{callbacks:{label:c=>`${c.formattedValue} km/l`}},
+                annotation: Object.keys(annotations).length ? {annotations} : undefined
+            },
+            scales:{
+                x:{ ticks:{font:{family:'Source Code Pro',size:10}} },
+                y:{ beginAtZero:true,
+                    ticks:{font:{family:'Source Code Pro',size:10}},
+                    title:{display:true,text:'KM/L',font:{family:'Barlow',size:10}} }
+            }
+        }
+    });
+
+    // ─ Driver cards ─
+    const targetLabel = avgTarget !== null
+        ? `<span style="font-family:'Source Code Pro',monospace;font-size:10px;color:var(--muted);margin-left:auto">Avg target: ${avgTarget.toFixed(2)} KM/L</span>`
+        : `<span style="font-family:'Source Code Pro',monospace;font-size:10px;color:var(--muted);margin-left:auto">No targets set</span>`;
+
     document.getElementById('driver-perf-cards').innerHTML = drivers.map((d,i)=>{
         const pct = maxKml>0 && d.kml ? (d.kml/maxKml*100) : 0;
-        const cls = d.kml>=8?'good':d.kml>=6?'':'bad';
-        const rankLabel = i===0?'🥇 Best':i===1?'🥈':'';
+        const cls = driverClass(d.kml);
+        const colCSS = driverColorCSS(d.kml);
+        const rankLabel = i===0?'🥇 Best':i===1?'🥈':i===drivers.length-1&&drivers.length>2?'⚠️':'';
         return `
         <div class="driver-card">
             <div class="dc-name">${d.name} <span style="font-size:11px;color:var(--muted);font-weight:400">${rankLabel}</span></div>
             <div class="dc-stats">
                 <div class="dc-stat">
                     <span class="dc-stat-label">Avg KM/L</span>
-                    <span class="dc-stat-val" style="color:${d.kml>=8?'var(--success)':d.kml>=6?'var(--warn)':'var(--danger)'}">${fmt(d.kml)}</span>
+                    <span class="dc-stat-val" style="color:${colCSS}">${fmt(d.kml)}</span>
                 </div>
                 <div class="dc-stat">
                     <span class="dc-stat-label">Total KM</span>
@@ -1025,11 +1332,173 @@ function renderDriverPerf(){
                 </div>
             </div>
             <div class="dc-perf-bar">
-                <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)">Efficiency Score</div>
+                <div style="font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)">vs Target</div>
                 <div class="dc-perf-track"><div class="dc-perf-fill ${cls}" style="width:${pct.toFixed(1)}%"></div></div>
             </div>
         </div>`;
     }).join('');
+
+    // Store for print use
+    window._driverPrintData = { drivers, avgTarget, selectedSeater };
+}
+
+// ── Tanks ────────────────────────────────────────────────
+async function renderTanks(){
+    document.getElementById('tankStatusTable').innerHTML = '<div class="analytics-loading">Loading tank data…</div>';
+
+    const tanks = await fetch('/admin/tanks').then(r=>r.json());
+
+    const labels  = tanks.map(t=>t.tankName);
+    const levels  = tanks.map(t=>t.currentFuel);
+    const maxCap  = tanks.length ? tanks[0].maxCapacity : 2000;
+    const colors  = tanks.map(t=>{
+        const pct = maxCap>0 ? t.currentFuel/maxCap : 0;
+        if(pct < 0.2) return 'rgba(198,40,40,.7)';
+        if(pct < 0.5) return 'rgba(230,160,20,.75)';
+        return 'rgba(46,125,50,.75)';
+    });
+
+    if(chartTankLevels) chartTankLevels.destroy();
+    chartTankLevels = new Chart(document.getElementById('chartTankLevels'),{
+        type:'bar',
+        data:{ labels, datasets:[{ label:'Fuel (L)', data:levels, backgroundColor:colors, borderRadius:2 }] },
+        options:{
+            responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.formattedValue} L`}} },
+            scales:{
+                x:{ ticks:{font:{family:'Source Code Pro',size:10}} },
+                y:{ beginAtZero:true, max:maxCap, ticks:{font:{family:'Source Code Pro',size:10}},
+                    title:{display:true,text:'Litres',font:{family:'Barlow',size:10}} }
+            }
+        }
+    });
+
+    document.getElementById('tankStatusTable').innerHTML = `
+        <div class="grid-wrapper">
+        <table class="rank-table">
+            <thead><tr><th>Tank</th><th>Fuel Remaining</th><th>% Full</th><th>Last Refuelled</th></tr></thead>
+            <tbody>
+            ${tanks.map(t=>{
+                const pct = maxCap>0 ? (t.currentFuel/maxCap*100) : 0;
+                return `<tr>
+                    <td>${t.tankName}</td>
+                    <td><strong>${t.currentFuel.toFixed(1)} / ${maxCap} L</strong></td>
+                    <td><span class="kml-bar" style="width:${Math.max(pct,4)}%"></span></td>
+                    <td>${t.dateRefuelled ?? '—'}</td>
+                </tr>`;
+            }).join('')}
+            </tbody>
+        </table></div>`;
+}
+
+// ── Print Driver Performance ─────────────────────────────
+function printDriverPerf(){
+    const data = window._driverPrintData;
+    if(!data){ alert('No driver data to print yet.'); return; }
+
+    const { drivers, avgTarget, selectedSeater } = data;
+    const dateStr = new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+    const seaterLabel = selectedSeater || 'All Seater Categories';
+
+    function driverColorPrint(kml){
+        if(kml==null) return '#666';
+        if(avgTarget!==null) return kml>=avgTarget?'#2e7d32':kml>=avgTarget*0.85?'#e6a817':'#c62828';
+        return kml>=8?'#2e7d32':kml>=6?'#e6a817':'#c62828';
+    }
+
+    // Build chart image from existing canvas
+    const chartCanvas = document.getElementById('chartDriverKml');
+    const chartImg = chartCanvas ? chartCanvas.toDataURL('image/png') : null;
+
+    const cardsHtml = drivers.map((d,i)=>{
+        const col = driverColorPrint(d.kml);
+        const rank = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        return `
+        <div style="background:#f5f7f8;border:1px solid #9aa0a6;border-radius:3px;padding:12px 14px;break-inside:avoid">
+            <div style="font-weight:700;font-size:13px;margin-bottom:8px">${rank} ${d.name}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+                <div>
+                    <div style="font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#596068">Avg KM/L</div>
+                    <div style="font-family:'Courier New',monospace;font-size:16px;font-weight:700;color:${col}">${d.kml!=null?d.kml.toFixed(2):'—'}</div>
+                </div>
+                <div>
+                    <div style="font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#596068">Total KM</div>
+                    <div style="font-family:'Courier New',monospace;font-size:16px;font-weight:700">${Math.round(d.km).toLocaleString()}</div>
+                </div>
+                <div>
+                    <div style="font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#596068">Trips</div>
+                    <div style="font-family:'Courier New',monospace;font-size:16px;font-weight:700">${d.trips}</div>
+                </div>
+                <div>
+                    <div style="font-size:8px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#596068">Total Fuel</div>
+                    <div style="font-family:'Courier New',monospace;font-size:16px;font-weight:700">${Math.round(d.fuel).toLocaleString()} L</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Driver Performance Report</title>
+    <style>
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:Barlow,Arial,sans-serif; color:#1e2428; padding:28px 32px; font-size:13px; }
+        @media print {
+            body { padding:16px; }
+            .no-print { display:none !important; }
+        }
+    </style>
+    </head><body>
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:2px solid #2b3036;padding-bottom:12px;margin-bottom:20px">
+        <div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#596068">Bus Fleet Manager</div>
+            <div style="font-size:20px;font-weight:700;margin:4px 0">Driver Performance Report</div>
+            <div style="font-size:11px;color:#596068">${seaterLabel}</div>
+        </div>
+        <div style="text-align:right">
+            <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#596068">Date Generated</div>
+            <div style="font-family:'Courier New',monospace;font-size:13px;font-weight:600">${dateStr}</div>
+            ${avgTarget!==null
+                ? `<div style="margin-top:6px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#596068">Avg Target KM/L</div>
+                   <div style="font-family:'Courier New',monospace;font-size:13px;font-weight:600;color:#1a5fa8">${avgTarget.toFixed(2)}</div>`
+                : '<div style="margin-top:6px;font-size:10px;color:#596068">No targets set</div>'}
+        </div>
+    </div>
+
+    <!-- Chart -->
+    ${chartImg ? `
+    <div style="margin-bottom:20px;border:1px solid #9aa0a6;border-radius:3px;padding:14px;background:#f5f7f8">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#596068;margin-bottom:10px">Average KM/L per Driver</div>
+        <img src="${chartImg}" style="width:100%;max-height:260px;object-fit:contain">
+    </div>` : ''}
+
+    <!-- Legend -->
+    <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#596068">Legend:</div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;background:#2e7d32;border-radius:2px"></div><span style="font-size:10px">At or above target</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;background:#e6a817;border-radius:2px"></div><span style="font-size:10px">Within 15% below target</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:12px;height:12px;background:#c62828;border-radius:2px"></div><span style="font-size:10px">More than 15% below target</span></div>
+    </div>
+
+    <!-- Driver cards grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${cardsHtml}
+    </div>
+
+    <div style="margin-top:24px;border-top:1px solid #9aa0a6;padding-top:8px;font-size:9px;color:#596068;display:flex;justify-content:space-between">
+        <span>Generated from Bus Fleet Manager</span>
+        <span>${dateStr}</span>
+    </div>
+
+    <div class="no-print" style="margin-top:24px;text-align:center">
+        <button onclick="window.print()" style="padding:10px 28px;background:#1a5fa8;color:white;border:none;border-radius:3px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.05em">🖨 Print / Save as PDF</button>
+        <button onclick="window.close()" style="margin-left:12px;padding:10px 20px;background:#c8cdd1;color:#2b3036;border:none;border-radius:3px;font-size:13px;font-weight:700;cursor:pointer">Close</button>
+    </div>
+    </body></html>`;
+
+    const win = window.open('','_blank','width=900,height=700');
+    win.document.write(html);
+    win.document.close();
 }
 
 reloadAll();
