@@ -840,6 +840,26 @@ async function reloadAll(){
 // ── ANALYTICS ───────────────────────────────────────────
 // ════════════════════════════════════════════════════════
 
+const SEATER_GROUP_MAP = {
+    '13 Seater': '15 Seater',
+    '15 Seater': '15 Seater',
+    '32 Seater': '36 Seater',
+    '36 Seater': '36 Seater',
+    '55 Seater': '65 Seater',
+    '60 Seater': '65 Seater',
+    '63 Seater': '65 Seater',
+    '65 Seater': '65 Seater',
+    '57 Seater': '80 Seater',
+    '75 Seater': '80 Seater',
+    '80 Seater': '80 Seater'
+};
+
+function normalizeSeaterGroup(value) {
+    const raw = String(value ?? '').trim();
+    const normalized = raw.replace(/-/g, ' ');
+    return SEATER_GROUP_MAP[raw] || SEATER_GROUP_MAP[normalized] || raw;
+}
+
 let analyticsData = null;      // raw records cache
 let chartBusKml    = null;      // Chart.js instance
 let chartEffLine   = null;      // Chart.js instance
@@ -879,8 +899,8 @@ async function initAnalytics(){
         targetKmlMap[b.BusNames] = b.Target_KML ?? null;
     });
 
-    // Populate seater dropdowns
-    const seaters = [...new Set(busRows.map(b=>b.Seater).filter(Boolean))].sort();
+    // Populate seater dropdowns with grouped labels
+    const seaters = [...new Set(busRows.map(b => normalizeSeaterGroup(b.Seater)).filter(Boolean))];
     ['analyticsSeaterBus','analyticsSeaterDriver'].forEach(id=>{
         const sel = document.getElementById(id);
         sel.innerHTML = '<option value="">All Seater Categories</option>'
@@ -894,7 +914,7 @@ async function initAnalytics(){
 
 function populateAnalyticsBusDropdown(seaterFilter){
     const buses = [...new Set(analyticsData
-        .filter(r => !seaterFilter || seaterMap[r.BusName] === seaterFilter)
+        .filter(r => !seaterFilter || normalizeSeaterGroup(seaterMap[r.BusName]) === seaterFilter)
         .map(r=>r.BusName))]
         .sort();
     const sel = document.getElementById('analyticsBusSelect');
@@ -1028,7 +1048,7 @@ async function loadBusPerf(){
 
     // Filter data by seater if set, then by bus if set
     const baseData = selectedSeater
-        ? analyticsData.filter(r => seaterMap[r.BusName] === selectedSeater)
+        ? analyticsData.filter(r => normalizeSeaterGroup(seaterMap[r.BusName]) === selectedSeater)
         : analyticsData;
 
     // Fetch current target KMLs from the BusName table so rating matches trip records
@@ -1204,7 +1224,7 @@ function renderDriverPerf(){
 
     const selectedSeater = document.getElementById('analyticsSeaterDriver').value;
     const filteredData = selectedSeater
-        ? analyticsData.filter(r => seaterMap[r.BusName] === selectedSeater)
+        ? analyticsData.filter(r => normalizeSeaterGroup(seaterMap[r.BusName]) === selectedSeater)
         : analyticsData;
 
     // Compute average Target_KML across buses in the filtered set

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone, time as dt_time
 from pathlib import Path
 from fastapi.responses import FileResponse
 import openpyxl
@@ -15,6 +15,17 @@ app = FastAPI()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 DB_PATH = Path(__file__).parent / "Database.db"
+
+# South Africa is UTC+2 all year (no daylight saving). Used for the Datum
+# Geskep / Finaliseer Datum stamps so they follow the business's calendar day
+# no matter what timezone the machine running this server is set to (and no
+# tzdata package is needed on Windows).
+APP_TZ = timezone(timedelta(hours=2))
+
+
+def _today_local() -> str:
+    """Today's date (YYYY-MM-DD) in the business's timezone."""
+    return datetime.now(APP_TZ).date().isoformat()
 
 # Every tank shares the same maximum capacity for now (litres)
 TANK_MAX_CAPACITY = 2000
@@ -54,7 +65,16 @@ def ensure_bus_table_has_tank_column(conn):
     if "TankName" not in cols:
         conn.execute('ALTER TABLE BusTable ADD COLUMN TankName TEXT')
 
-
+def ensure_driver_unavailable_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS DriverUnavailable (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            datum      TEXT    NOT NULL,          -- ISO date: YYYY-MM-DD
+            driverName TEXT    NOT NULL,
+            UNIQUE(datum, driverName)             -- one row per driver per day
+        )
+    """)
+    conn.commit()
 
 # =========================
 # GOOD/BAD HELPER
@@ -304,7 +324,7 @@ def get_bus_records(bus_name: str):
         SELECT *
         FROM BusTable
         WHERE BusName = ?
-        ORDER BY ID ASC
+        ORDER BY ID DESC
     """, (bus_name,)).fetchall()
     conn.close()
 
@@ -370,7 +390,7 @@ def get_bus_driver_records(bus_name: str, driver_name: str):
         SELECT *
         FROM BusTable
         WHERE BusName = ? AND Driver = ?
-        ORDER BY ID ASC
+        ORDER BY ID DESC
     """, (bus_name, driver_name)).fetchall()
     conn.close()
 
@@ -408,6 +428,90 @@ def bus_has_records(bus_name: str):
     """, (bus_name,)).fetchone()
     conn.close()
     return {"hasRecords": row["cnt"] > 0}
+
+# =========================
+# DRIVER UNAVAILABILITY
+# =========================
+
+def _parse_driver_dob(value):
+    """Parse a DOB stored in common text formats such as YYYY/MM/DD or YYYY-MM-DD."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in ("%Y/%m/%d", "%Y-%m-%d", "%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+@app.get("/drivers/unavailable")
+def get_unavailable_drivers(date: str):
+    """Return all unavailable drivers for the date, including drivers whose birthday falls on that day."""
+    conn = get_db()
+    ensure_driver_unavailable_table(conn)
+
+    try:
+        selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        conn.close()
+        return []
+
+    names = set()
+    rows = conn.execute(
+        "SELECT driverName FROM DriverUnavailable WHERE datum = ? ORDER BY driverName",
+        (date,)
+    ).fetchall()
+    for row in rows:
+        name = (row["driverName"] or "").strip()
+        if name:
+            names.add(name)
+
+    dob_rows = conn.execute(
+        "SELECT DriverName, DOB FROM Drivers WHERE DOB IS NOT NULL AND TRIM(DOB) <> ''"
+    ).fetchall()
+    for row in dob_rows:
+        dob = _parse_driver_dob(row["DOB"])
+        if dob and dob.month == selected_date.month and dob.day == selected_date.day:
+            name = (row["DriverName"] or "").strip()
+            if name:
+                names.add(name)
+
+    conn.close()
+    return sorted(names)
+
+
+@app.post("/drivers/unavailable")
+async def set_unavailable_drivers(request: Request):
+    """
+    Replace the full unavailability list for a given date.
+    Body: { "date": "YYYY-MM-DD", "drivers": ["Name1", "Name2", ...] }
+    """
+    body    = await request.json()
+    date    = (body.get("date") or "").strip()
+    drivers = body.get("drivers", [])
+
+    if not date:
+        return JSONResponse(content={"error": "date is required"}, status_code=400)
+
+    conn = get_db()
+    ensure_driver_unavailable_table(conn)
+
+    # Delete all existing entries for this date, then re-insert
+    conn.execute("DELETE FROM DriverUnavailable WHERE datum = ?", (date,))
+    for name in drivers:
+        name = (name or "").strip()
+        if name:
+            conn.execute(
+                "INSERT OR IGNORE INTO DriverUnavailable (datum, driverName) VALUES (?, ?)",
+                (date, name)
+            )
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "date": date, "count": len(drivers)}
 
 # =========================
 # SUBMIT NEW ENTRY
@@ -661,6 +765,8 @@ def dagboek_list_entries(year: int, month: int, type: str):
 async def dagboek_create_entry(request: Request):
     body = await request.json()
     aanvaar = 1 if body.get("type") == "dagboek" else 0
+    created_on = _today_local()
+    trip_type = _canonical_trip_type(body.get("tipeTrip"))
     conn = get_db()
     ensure_kwotasie_table(conn)
     cur = conn.execute("""
@@ -681,8 +787,8 @@ async def dagboek_create_entry(request: Request):
         body.get("opmerkings") or "",
         aanvaar,
         body.get("seater") or "",
-        body.get("tipeTrip") or "",
-        str(date.today()),  # dateCreated is always stamped now, never client-supplied
+        trip_type,
+        created_on,  # dateCreated is always stamped now, never client-supplied
         body.get("datumTerug") or "",
         1 if str(body.get("betaal") or "").strip().lower() in {"1", "true", "yes", "checked", "on"} else 0,
         1 if str(body.get("trailer") or "").strip().lower() in {"1", "true", "yes", "checked", "on"} else 0,
@@ -695,7 +801,7 @@ async def dagboek_create_entry(request: Request):
     conn.execute("UPDATE Kwotasie SET tripGroupId = ? WHERE id = ?", (new_id, new_id))
     conn.commit()
     conn.close()
-    return {"status": "success", "id": new_id}
+    return {"status": "success", "id": new_id, "dateCreated": created_on}
 
 
 # Map the grid's field names (what the frontend sends) onto actual Kwotasie
@@ -733,6 +839,8 @@ async def dagboek_update_entry(trip_id: int, request: Request):
         return JSONResponse(content={"error": f"Unknown field: {field}"}, status_code=400)
     if field == "bedrag":
         value = _parse_float(value)
+    elif field == "tipeTrip":
+        value = _canonical_trip_type(value)
     elif field in ("betaal", "trailer"):
         value = 1 if str(value).strip().lower() in {"1", "true", "yes", "checked", "on"} else 0
     conn = get_db()
@@ -741,6 +849,22 @@ async def dagboek_update_entry(trip_id: int, request: Request):
     conn.commit()
     conn.close()
     return {"status": "success"}
+
+
+def _canonical_trip_type(value):
+    """Normalise stored trip-type strings to the canonical set used by the UI."""
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    compact = text.lower().replace("_", " ").replace("-", " ").replace("/", " ")
+    aliases = {
+        "dag retoer": "Dag-Retoer",
+        "toer retoer": "Toer-Retoer",
+        "toer oorslaap": "Toer-Oorslaap",
+    }
+    return aliases.get(compact, text.strip())
 
 
 def _date_range_inclusive(start_str: str, end_str: str):
@@ -771,7 +895,15 @@ def dagboek_accept_entry(trip_id: int):
         conn.close()
         return JSONResponse(content={"error": "Not found"}, status_code=404)
 
-    trip_type = (row["tipeTrip"] or "").strip()
+    if row["aanvaar"]:
+        # Already finalised (e.g. a double-click) — don't clone extra days or
+        # overwrite the original Finaliseer Datum.
+        conn.close()
+        return {"status": "success", "days_created": 0,
+                "finaliseerDatum": row["finaliseerDatum"], "already_finalised": True}
+
+    finalised_on = _today_local()
+    trip_type = _canonical_trip_type(row["tipeTrip"])
     departure = row["datum"]
     terug = row["datumTerug"] or row["datum"]
 
@@ -792,9 +924,9 @@ def dagboek_accept_entry(trip_id: int):
     # any history references to it stay intact.
     conn.execute("""
         UPDATE Kwotasie
-        SET aanvaar = 1, datum = ?, tripGroupId = ?
+        SET aanvaar = 1, datum = ?, tripGroupId = ?, finaliseerDatum = ?
         WHERE id = ?
-    """, (dates[0], group_id, trip_id))
+    """, (dates[0], group_id, finalised_on, trip_id))
 
     # Extra days (return day of a Toer-Retoer, or every day in between for a
     # Toer-Oorslaap) become their own cloned Dagboek rows. Only the first day
@@ -815,7 +947,7 @@ def dagboek_accept_entry(trip_id: int):
 
     conn.commit()
     conn.close()
-    return {"status": "success", "days_created": len(dates)}
+    return {"status": "success", "days_created": len(dates), "finaliseerDatum": finalised_on}
 
 
 @app.delete("/dagboek/entries/{trip_id}")
@@ -1657,23 +1789,50 @@ def dagboek_export(year: int, month: int, day: int = 0):
 
     month_str = f"{year:04d}-{month:02d}"
 
-    # Helper function to format time from HH:MM to HHhMM
-    def format_time_for_excel(time_str):
-        """Convert HH:MM or HH:MM:SS to HHhMM format (e.g., 08:30 -> 08H30)"""
+    # Helper function to parse a HH:MM / HH:MM:SS string into a real
+    # datetime.time object (or None).
+    #
+    # This used to build a "08H30" text string and write that directly
+    # into the cell. That produced a plain-text cell, and the client's
+    # practice.py tool parses these columns with pandas.to_datetime(...),
+    # expecting a real time value — a text string with a literal "H" in
+    # it fails to parse, which is what threw the formatting error.
+    #
+    # Returning a datetime.time here lets us write an actual Excel time
+    # cell (see number_format handling in data_cell below) that still
+    # *displays* as "08H30" via a custom number format, while the
+    # underlying value stays a real time that other tools can read.
+    def parse_time_value(time_str):
+        """Convert HH:MM or HH:MM:SS text into a datetime.time object, or None."""
         if not time_str:
-            return ""
+            return None
         time_str = str(time_str).strip()
-        if ':' in time_str:
-            parts = time_str.split(':')
-            hours = parts[0].zfill(2)
-            minutes = parts[1].zfill(2)
-            return f"{hours}H{minutes}"
-        return time_str
+        if ':' not in time_str:
+            return None
+        parts = time_str.split(':')
+        try:
+            hours = int(parts[0])
+            minutes = int(parts[1])
+            seconds = int(parts[2]) if len(parts) > 2 else 0
+            return dt_time(hour=hours, minute=minutes, second=seconds)
+        except (ValueError, IndexError):
+            return None
+
+    def parse_date_value(date_str):
+        """Convert a YYYY-MM-DD string into a datetime.date object, or None.
+        Used for the T BACK column on a multi-day trip whose return day
+        hasn't arrived yet -- see the T BACK handling below."""
+        if not date_str:
+            return None
+        try:
+            return datetime.strptime(str(date_str)[:10], "%Y-%m-%d").date()
+        except ValueError:
+            return None
 
     conn = get_db()
     rows = conn.execute("""
         SELECT id, datum, bus, klient, bestemming, tydOplaai, tydTerug,
-            bestuurder, opmerkings, seater, tipeTrip, trailer
+            bestuurder, opmerkings, seater, tipeTrip, trailer, datumTerug
         FROM Kwotasie
         WHERE aanvaar = 1 AND substr(datum, 1, 7) = ?
         ORDER BY datum, id
@@ -1690,40 +1849,68 @@ def dagboek_export(year: int, month: int, day: int = 0):
         day_str = f"{year:04d}-{month:02d}-{day:02d}"
         rows    = [r for r in rows if (r.get("datum") or "").startswith(day_str)]
 
+    today_iso = _today_local()
+
+    def is_pending_multi_day_return(row):
+        """Mirrors the isMultiDayTrip / todayISO check in dagboek.html: true
+        for a Toer-Retoer / Toer-Oorslaap trip with a Datum Terug set that's
+        still in the future, i.e. there's no real return time to show yet."""
+        trip_type = _canonical_trip_type(row.get("tipeTrip"))
+        if trip_type not in ("Toer-Retoer", "Toer-Oorslaap"):
+            return False
+        datum = row.get("datum") or ""
+        datum_terug = row.get("datumTerug") or ""
+        if not datum_terug or datum_terug == datum:
+            return False
+        return today_iso < datum_terug
+
     for r in rows:
         bus = (r.get("bus") or "").strip()
-        r["_export_seater"] = (r.get("seater") or "").strip() or (seater_map.get(bus) or "").strip()
-        r["_export_pickup_time"] = format_time_for_excel(r.get("tydOplaai") or "")
-        r["_export_return_time"] = format_time_for_excel(r.get("tydTerug") or "")
-        r["_export_trailer"] = "Yes" if r.get("trailer") else "No"
+        r["_export_seater"] = ((r.get("seater") or "").replace("Seater", "").strip() or (seater_map.get(bus) or "").replace("Seater", "").strip())
+        r["_export_pickup_time"] = parse_time_value(r.get("tydOplaai") or "")
+        r["_export_return_time"] = (
+            parse_date_value(r.get("datumTerug") or "")
+            if is_pending_multi_day_return(r)
+            else parse_time_value(r.get("tydTerug") or "")
+        )
+        r["_export_trailer"] = "Yes" if r.get("trailer") else " "
 
     # ── Styles ────────────────────────────────────────────────────────────
 
     DAY_FILLS = {
-        "MAANDAG":  PatternFill("solid", fgColor="4472C4"),  # blue
-        "DINSDAG":  PatternFill("solid", fgColor="ED7D31"),  # orange
-        "WOENSDAG": PatternFill("solid", fgColor="C33699"),  # purple
-        "DONDERDAG":PatternFill("solid", fgColor="4FBF90"),  # teal
-        "VRYDAG":   PatternFill("solid", fgColor="8DAE2B"),  # olive
-        "SATERDAG": PatternFill("solid", fgColor="D9534F"),  # red
-        "SONDAG":   PatternFill("solid", fgColor="27AE60"),  # green
+        "MONDAY":  PatternFill("solid", fgColor="4472C4"),  # blue
+        "TUESDAY":  PatternFill("solid", fgColor="ED7D31"),  # orange
+        "WEDNESDAY": PatternFill("solid", fgColor="FF0066"),  # purple
+        "THURSDAY":PatternFill("solid", fgColor="00CC99"),  # teal
+        "FRIDAY":   PatternFill("solid", fgColor="FFFF00"),  # olive
+        "SATURDAY": PatternFill("solid", fgColor="FF6699"),  # red
+        "SUNDAY":   PatternFill("solid", fgColor="00FF00"),  # green
     }
     WHITE_FILL  = PatternFill("solid", fgColor="FFFFFF")
 
     thin   = Side(style="thin", color="BFBFBF")
     BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    # ── Columns: 11 total (A–K) ───────────────────────────────────────────
+    # ── Columns: 13 total (A–M) ───────────────────────────────────────────
     # A:NR  B:DEPOT  C:BESTUURDER  D:SEATER  E:BUS  F:TRAILER
-    # G:PICK UP  H:BESTEMMING  I:TYD OPLAAI  J:TYD TERUG  K:OPMERKINGS
-    LAST_COL     = "K"
-    LAST_COL_NUM = 11
-    COL_WIDTHS   = [5, 11, 20, 12, 18, 9, 36, 36, 11, 11, 26]
+    # G:PICK UP  H:BESTEMMING  I:TYD OPLAAI  J:TYD TERUG  K,L: (spacer)  M:OPMERKINGS
+    #
+    # Columns K and L are deliberately blank, narrow spacer columns. This
+    # is a compatibility shim for practice.py, the client's separate
+    # import tool: it reads this sheet positionally and expects the
+    # comments field 2 columns further right than it would naturally sit
+    # (it reads data column index 11, i.e. sheet column M, not K). Rather
+    # than edit practice.py — which the client would need to rebuild and
+    # redistribute as a new executable — COMMENTS is pushed out to M to
+    # match what it already expects, with K/L as empty filler.
+    LAST_COL     = "M"
+    LAST_COL_NUM = 13
+    COL_WIDTHS   = [6.78, 18.78, 31.44, 15.67, 29.22, 15.22, 60.78, 65.67, 14.44, 14, 0.1, 0.1, 42.44]
     HEADERS      = ["NR:", "DEPOT:", "DRIVER", "SEATER:", "BUS:", "TRAILER:",
-                    "PICK UP", "DESTINATION", "T P/UP", "T BACK", "COMMENTS"]
-    MERGE_RANGE  = f"A{{r}}:{LAST_COL}{{r}}"   # e.g. "A1:K1"
+                    "PICK UP", "DESTINATION", "T P/UP", "T BACK", "", "", "COMMENTS"]
+    MERGE_RANGE  = f"A{{r}}:{LAST_COL}{{r}}"   # e.g. "A1:M1"
 
-    def hdr_cell(ws, row, col, value, size=10):
+    def hdr_cell(ws, row, col, value, size=22):
         c           = ws.cell(row=row, column=col, value=value)
         c.font      = Font(name="Arial", bold=True, size=size)
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -1732,10 +1919,18 @@ def dagboek_export(year: int, month: int, day: int = 0):
 
     def data_cell(ws, row, col, value, bold=False, align="left", alt=False):
         c           = ws.cell(row=row, column=col, value=value)
-        c.font      = Font(name="Arial", size=10, bold=bold)
+        c.font      = Font(name="Arial", size=20, bold=bold)
         c.alignment = Alignment(horizontal=align, vertical="center")
         c.border    = BORDER
         c.fill      = WHITE_FILL
+        # Real datetime.time values (pickup/return times) get an Excel
+        # time number_format so the cell stays a genuine time value —
+        # still displayed as "08H30" — instead of falling back to
+        # openpyxl's default text formatting.
+        if isinstance(value, dt_time):
+            c.number_format = 'hh"H"mm'
+        elif isinstance(value, date):
+            c.number_format = 'dd mmm'  # no year; matches the short month display used in dagboek.html
         return c
 
     # ── Date labels ───────────────────────────────────────────────────────
@@ -1744,8 +1939,8 @@ def dagboek_export(year: int, month: int, day: int = 0):
     day_of_week = ""
     if day:
         import datetime as dt
-        days_af     = ["MAANDAG","DINSDAG","WOENSDAG","DONDERDAG",
-                       "VRYDAG","SATERDAG","SONDAG"]
+        days_af     = ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY",
+                       "FRIDAY","SATURDAY","SUNDAY"]
         day_of_week = days_af[dt.date(year, month, day).weekday()]
 
     # ── Workbook / sheet ──────────────────────────────────────────────────
@@ -1759,28 +1954,50 @@ def dagboek_export(year: int, month: int, day: int = 0):
     # ── Row 1: Title ──────────────────────────────────────────────────────
     ws.merge_cells(MERGE_RANGE.format(r=1))
     c           = ws.cell(row=1, column=1, value="DAY PROGRAM")
-    c.font      = Font(name="Arial", bold=True, size=15)
+    c.font      = Font(name="Arial", bold=True, size=26)
     c.alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[1].height = 54.8
 
     # ── Row 2: Date / day-of-week bar ────────────────────────────────────
+    # practice.py reads this sheet's date from row 2, column A — it does
+    # str(cell) then datetime.strptime(..., "%Y-%m-%d %H:%M:%S"). A plain
+    # display string like "DINSDAG, 08 SEPTEMBER 2026" doesn't match that
+    # format, which is what threw the "time data ... does not match
+    # format" error. To keep this cell working for practice.py without
+    # changing practice.py itself, the cell's actual VALUE is now a real
+    # date — pandas.read_excel hands that back as a Timestamp, and str()
+    # on that always comes out as "YYYY-MM-DD HH:MM:SS".
+    #
+    # To still *display* "DINSDAG, 08 SEPTEMBER 2026" exactly as before,
+    # a custom number_format is built with the Afrikaans weekday and the
+    # month name baked in as literal quoted text (both already computed
+    # in Python above), and only "dd"/"yyyy" — plain digit tokens, not
+    # locale-dependent — pull from the date value itself. Excel/LibreOffice
+    # render the literal text regardless of the app's language settings,
+    # so this doesn't depend on the client's Excel locale.
     ws.merge_cells(MERGE_RANGE.format(r=2))
-    date_str    = f"{day_of_week}, {day_label}" if day_of_week else day_label
-    d2          = ws.cell(row=2, column=1, value=date_str)
+    if day:
+        d2 = ws.cell(row=2, column=1, value=date(year, month, day))
+        literal_weekday = f'"{day_of_week}, "' if day_of_week else ''
+        d2.number_format = f'{literal_weekday}dd" {month_name} "yyyy'
+    else:
+        # Whole-month export: no single date to encode, so this stays
+        # plain text as before (practice.py isn't used against this view).
+        d2 = ws.cell(row=2, column=1, value=day_label)
     day_fill    = DAY_FILLS.get(day_of_week)
     d2.fill     = day_fill
     # Use dark text for light fills (VRYDAG olive / SATERDAG red use white)
-    light_days  = {"MAANDAG","DINSDAG","WOENSDAG","DONDERDAG","SATERDAG","SONDAG"}
-    txt_color   = "FFFFFF" if day_of_week in light_days else "1F3864"
-    d2.font     = Font(name="Arial", bold=True, color=txt_color, size=12)
+    light_days  = {"MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"}
+    txt_color   = "1F3864" if day_of_week in light_days else "1F3864"
+    d2.font     = Font(name="Arial", bold=True, color=txt_color, size=24)
     d2.alignment= Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[2].height = 26
+    ws.row_dimensions[2].height = 57.8
 
     # ── Row 3: Column headers ─────────────────────────────────────────────
     for col, h in enumerate(HEADERS, 1):
         # Smaller font for the two time columns
-        hdr_cell(ws, 3, col, h, size=8 if col in (6, 9, 10) else 10)
-    ws.row_dimensions[3].height = 26
+        hdr_cell(ws, 3, col, h, size=22 if col in (7, 8) else 16)
+    ws.row_dimensions[3].height = 47.3
 
     # ── Row 4+: Data ──────────────────────────────────────────────────────
     sorted_rows = sorted(rows, key=lambda r: (r.get("_export_pickup_time") or "", r.get("id") or 0))
@@ -1791,7 +2008,7 @@ def dagboek_export(year: int, month: int, day: int = 0):
         bus = (r.get("bus") or "").strip()
         pickup_time = r.get("_export_pickup_time") or ""
         return_time = r.get("_export_return_time") or ""
-        ws.row_dimensions[rn].height = 22
+        ws.row_dimensions[rn].height = 67.5
 
         data_cell(ws, rn,  1, i + 1,                      align="center", bold=True, alt=alt)
         data_cell(ws, rn,  2, r.get("_export_pickup_time") or "",   align="center",            alt=alt)  # DEPOT (Pickup time in HHhMM format)
@@ -1803,7 +2020,9 @@ def dagboek_export(year: int, month: int, day: int = 0):
         data_cell(ws, rn,  8, r.get("bestemming") or "",                             alt=alt)
         data_cell(ws, rn,  9, pickup_time,                 align="center",            alt=alt)
         data_cell(ws, rn, 10, return_time,                 align="center",            alt=alt)
-        data_cell(ws, rn, 11, r.get("opmerkings") or "",                             alt=alt)
+        data_cell(ws, rn, 11, "",                                                    alt=alt)  # spacer (see LAST_COL note above)
+        data_cell(ws, rn, 12, "",                                                    alt=alt)  # spacer (see LAST_COL note above)
+        data_cell(ws, rn, 13, r.get("opmerkings") or "",                             alt=alt)
 
     # Pad to at least 15 rows so the table always looks complete
     filled      = len(sorted_rows)
@@ -1811,7 +2030,7 @@ def dagboek_export(year: int, month: int, day: int = 0):
     for i in range(filled, target_rows):
         rn  = 4 + i
         alt = (i % 2 == 1)
-        ws.row_dimensions[rn].height = 18
+        ws.row_dimensions[rn].height = 67.5
         data_cell(ws, rn, 1, i + 1, align="center", bold=True, alt=alt)
         for col in range(2, LAST_COL_NUM + 1):
             data_cell(ws, rn, col, "", alt=alt)

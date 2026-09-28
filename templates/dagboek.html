@@ -275,8 +275,15 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 12px;
         margin-bottom: 10px;
         flex-shrink: 0;
+    }
+    .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
     }
     .btn-add {
         padding: 7px 18px;
@@ -293,6 +300,81 @@
         transition: background 0.15s;
     }
     .btn-add:hover { background: #154e8e; }
+    .unavailable-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--white);
+        border: 1px solid var(--border);
+        padding: 5px 8px;
+        border-radius: 2px;
+    }
+    .unavailable-group label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    .unavailable-group select {
+        min-width: 170px;
+        padding: 5px 8px;
+        font-family: 'Barlow', sans-serif;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        background: white;
+        color: var(--text);
+    }
+    .unavailable-driver-pill {
+        display: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        min-height: 32px;
+    }
+    .unavailable-driver-pill-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 8px;
+        border-radius: 2px;
+        font-family: 'Source Code Pro', monospace;
+        font-size: 11px;
+        font-weight: 700;
+        border: 1px solid #bfd4f1;
+        background: #eaf2ff;
+        color: var(--accent);
+    }
+    .unavailable-driver-pill-item.unavailable {
+        background: #fdecea;
+        border-color: #e57373;
+        color: #b71c1c;
+    }
+    .unavailable-driver-pill-item.birthday {
+        background: #e3f2fd;
+        border-color: #64b5f6;
+        color: #0d47a1;
+    }
+    .unavailable-driver-pill-item button {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        padding: 0;
+        width: 14px;
+        height: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+    .unavailable-driver-pill-item button:hover {
+        background: rgba(0,0,0,0.08);
+    }
 
     .grid-wrapper {
         flex-shrink: 0;
@@ -332,6 +414,20 @@
 
     th.col-check, td.col-check { text-align: center; width: 34px; }
     th.col-nr, td.col-nr { text-align: center; width: 42px; font-weight: 700; color: var(--muted); }
+    th.col-klient, td.col-klient {
+        min-width: 260px;
+        width: 300px;
+    }
+    th.col-bestemming, td.col-bestemming {
+        min-width: 260px;
+        width: 310px;
+    }
+    th.col-opmerkings, td.col-opmerkings {
+        min-width: 160px;
+        width: 200px;
+    }
+    td.col-tyd-terug-pending { text-align: center; color: var(--muted); font-style: italic; white-space: nowrap; }
+    th.col-copy, td.col-copy { text-align: center; width: 28px; }
     th.col-del, td.col-del { text-align: center; width: 32px; }
 
     .grid-wrapper td input, .grid-wrapper td select {
@@ -346,6 +442,13 @@
         border-radius: 2px;
         outline: none;
     }
+    .grid-wrapper td.col-klient input,
+    .grid-wrapper td.col-bestemming input {
+        min-width: 240px;
+    }
+    .grid-wrapper td.col-opmerkings input {
+        min-width: 130px;
+    }
     .grid-wrapper td input[type="time"] { min-width: 96px; }
     .grid-wrapper td input[type="date"] { min-width: 116px; }
     .grid-wrapper td input[type="checkbox"] { width: auto; min-width: 0; accent-color: var(--accent); cursor: pointer; }
@@ -358,15 +461,22 @@
     .bedrag-wrap span { color: var(--muted); font-size: 12px; }
     .bedrag-wrap input { min-width: 70px; text-align: right; }
 
+    .row-copy-btn,
     .row-del-btn {
         background: none;
         border: none;
-        color: var(--bad);
         cursor: pointer;
         font-size: 14px;
         font-weight: 700;
         line-height: 1;
         padding: 4px;
+    }
+    .row-copy-btn {
+        color: var(--accent);
+    }
+    .row-copy-btn:hover { color: #113f75; }
+    .row-del-btn {
+        color: var(--bad);
     }
     .row-del-btn:hover { color: #8e1f1f; }
 
@@ -404,11 +514,18 @@
         flex-direction: column;
         min-height: 240px;
     }
+    .kwotasie-separator {
+        display: none;
+        height: 3px;
+        background: var(--accent);
+        border-radius: 2px;
+        margin: 15px 0;
+    }
     .history-controls {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        padding: 10px 10px 0;
+        padding: 10px 10px 8px;
     }
     .history-control {
         display: flex;
@@ -524,6 +641,22 @@
     }
     .btn-export:hover   { background: #1b5e20; }
     .btn-export:disabled { background: #888; cursor: default; }
+    .btn-print {
+        padding: 8px 16px;
+        font-family: 'Barlow', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        background: #1a5fa8;
+        color: white;
+        border: none;
+        border-radius: 2px;
+        cursor: pointer;
+        transition: background .12s;
+    }
+    .btn-print:hover    { background: #154e8e; }
+    .btn-print:disabled { background: #888; cursor: default; }
 </style>
 </head>
 <body>
@@ -574,14 +707,25 @@
         </div>
 
         <div class="toolbar">
-            <button class="btn-add" onclick="addRow()">+ Voeg Ry By</button>
-            <button class="btn-export" id="exportBtn" onclick="exportDagboek()"> Export</button>
-            <div id="loadStatus" style="font-family:'Source Code Pro',monospace;font-size:11px;color:var(--muted)"></div>
+            <div class="toolbar-left">
+                <button class="btn-add" onclick="addRow()">+ Voeg Ry By</button>
+                <div id="unavailableDriverGroup" class="unavailable-group" style="display:none">
+                    <label for="unavailableDriverSelect">Onbeskikbaar</label>
+                    <select id="unavailableDriverSelect" aria-label="Unbeskikbaar">
+                        <option value="">-- Kies --</option>
+                    </select>
+                </div>
+                <div id="unavailableDriverDisplay" class="unavailable-driver-pill"></div>
+                <div id="loadStatus" style="font-family:'Source Code Pro',monospace;font-size:11px;color:var(--muted)"></div>
+            </div>
+            <button class="btn-print"  id="printBtn"  onclick="printDagboek()"  style="display:none">&#128438; Print</button>
+            <button class="btn-export" id="exportBtn" onclick="exportDagboek()" style="display:none">&#8659; Eksporteer</button>
         </div>
 
         <div class="grid-wrapper">
             <datalist id="quoteKlientList"></datalist>
             <datalist id="quoteBestemmingList"></datalist>
+            <datalist id="historyKlientOptions"></datalist>
             <table>
                 <thead id="tableHead"></thead>
                 <tbody id="tableBody">
@@ -589,6 +733,8 @@
                 </tbody>
             </table>
         </div>
+
+        <div id="kwotasieSeparator" class="kwotasie-separator" aria-hidden="true"></div>
 
         <div id="quoteHistoryPanel" class="history-panel" style="display:none;">
             <div class="history-controls">
@@ -598,7 +744,7 @@
                 </div>
                 <div class="history-control">
                     <label for="historyClientFilter">Klient</label>
-                    <select id="historyClientFilter"></select>
+                    <input type="text" id="historyClientFilter" list="historyKlientOptions" autocomplete="off" placeholder="Tik 'n deel van 'n klient naam...">
                 </div>
                 <div class="history-control">
                     <label for="historyBusFilter">Bus</label>
@@ -730,6 +876,18 @@
                  trailer: 0, faktuur: '' };
     }
 
+    function normalizeTripType(value) {
+        const text = String(value ?? '').trim();
+        if (!text) return '';
+        const compact = text.toLowerCase().replace(/[_/]/g, ' ').replace(/-/g, ' ');
+        const aliases = {
+            'dag retoer': 'Dag-Retoer',
+            'toer retoer': 'Toer-Retoer',
+            'toer oorslaap': 'Toer-Oorslaap'
+        };
+        return aliases[compact] || text;
+    }
+
     // Normalize time values to HH:MM format (24-hour, no seconds)
     function normalizeTimeValue(value) {
         if (!value) return '';
@@ -739,6 +897,22 @@
         const hours = String(match[1]).padStart(2, '0');
         const minutes = match[2];
         return `${hours}:${minutes}`;
+    }
+    // Real current date (unlike todayInSelectedMonth, which is about the
+    // calendar month being viewed) -- used to decide whether a multi-day
+    // trip's return day has arrived yet.
+    function todayISO() {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+    // Same "day month" style used elsewhere (e.g. the print header) but
+    // without the year, per the Tyd Terug multi-day display.
+    function formatDateNoYear(iso) {
+        const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+        if (!match) return '';
+        const [, y, m, d] = match;
+        return new Date(Number(y), Number(m) - 1, Number(d))
+            .toLocaleDateString('af-ZA', { day: '2-digit', month: 'short' });
     }
     function todayInSelectedMonth() {
         const now = new Date();
@@ -761,6 +935,7 @@
     // ── State ────────────────────────────────────────────────
     let busList = [];
     let driverList = [];
+    let driverBirthdayMap = {};
     let seaterList = [];
     let tripTypeList = [];
     let seaterMap = {};
@@ -771,6 +946,155 @@
     let historyRows = [];
     let historyFilters = { year: '', client: '', bus: '', destination: [], streek: '', tipe: '', aanvaar: '' };
     let highlightedQuoteId = null;
+    let unavailableDriversByDay = {};   // cache: dateKey -> [driverName, ...]
+
+    function normalizeDriverName(name) {
+        return String(name || '').trim().toLowerCase();
+    }
+
+    function parseDobValue(value) {
+        if (value === null || value === undefined) return null;
+        const text = String(value).trim();
+        if (!text) return null;
+        const match = text.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        if (!match) return null;
+        const [, year, month, day] = match;
+        const date = new Date(Number(year), Number(month) - 1, Number(day));
+        if (Number.isNaN(date.getTime())) return null;
+        return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+    }
+
+    function getBirthdayDriversForDate(dateKey) {
+        if (!dateKey) return [];
+        const [year, monthText, dayText] = String(dateKey).split('-');
+        const targetMonth = Number(monthText || 0);
+        const targetDay = Number(dayText || 0);
+        if (!year || !targetMonth || !targetDay) return [];
+
+        return driverList.filter(name => {
+            const dob = driverBirthdayMap[normalizeDriverName(name)];
+            const parsed = parseDobValue(dob);
+            return parsed && parsed.month === targetMonth && parsed.day === targetDay;
+        });
+    }
+
+    // ── API-backed unavailability helpers ────────────────────────────────
+    async function loadUnavailableFromServer(dateKey) {
+        if (!dateKey) return [];
+        try {
+            const res = await fetch(`/drivers/unavailable?date=${encodeURIComponent(dateKey)}`);
+            if (!res.ok) return [];
+            return await res.json();   // string[]
+        } catch (e) {
+            console.warn('Could not load unavailable drivers from server', e);
+            return [];
+        }
+    }
+
+    async function saveUnavailableToServer(dateKey, drivers) {
+        try {
+            await fetch('/drivers/unavailable', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ date: dateKey, drivers })
+            });
+        } catch (e) {
+            console.warn('Could not save unavailable drivers to server', e);
+        }
+    }
+
+    function dateKeyForCurrentDay() {
+        if (!currentDayFilter) return '';
+        const day = String(parseInt(currentDayFilter, 10) || '').padStart(2, '0');
+        return `${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}-${day}`;
+    }
+
+    async function renderUnavailableDriverSelector() {
+        const select = document.getElementById('unavailableDriverSelect');
+        const display = document.getElementById('unavailableDriverDisplay');
+        const group = document.getElementById('unavailableDriverGroup');
+        if (!select || !display || !group) return;
+
+        const dagboekVisible = currentType === 'dagboek';
+        group.style.display = dagboekVisible ? 'flex' : 'none';
+
+        if (!dagboekVisible || !currentDayFilter) {
+            select.disabled = !dagboekVisible;
+            select.value = '';
+            display.innerHTML = '';
+            display.style.display = 'none';
+            return;
+        }
+
+        const dayKey = dateKeyForCurrentDay();
+
+        if (!unavailableDriversByDay[dayKey]) {
+            unavailableDriversByDay[dayKey] = await loadUnavailableFromServer(dayKey);
+        }
+
+        const selected = unavailableDriversByDay[dayKey] || [];
+        const birthdayNames = getBirthdayDriversForDate(dayKey);
+        const manualSelected = selected.filter(name => !birthdayNames.includes(name));
+        const displayNames = [...manualSelected, ...birthdayNames];
+
+        select.disabled = false;
+        select.value = '';
+
+        if (displayNames.length) {
+            display.innerHTML = displayNames.map(name => {
+                const isBirthday = birthdayNames.includes(name);
+                const isUnavailable = manualSelected.includes(name);
+                const classes = ['unavailable-driver-pill-item'];
+                if (isUnavailable) classes.push('unavailable');
+                if (isBirthday) classes.push('birthday');
+                const removable = isUnavailable ? `<button type="button" aria-label="Verwyder ${escapeHtml(name)}" title="Verwyder ${escapeHtml(name)}" onclick='removeUnavailableDriver(${JSON.stringify(name)}); event.stopPropagation(); return false;'> &times; </button>` : '';
+                return `<span class="${classes.join(' ')}">${escapeHtml(name)}${removable}</span>`;
+            }).join('');
+            display.style.display = 'flex';
+        } else {
+            display.innerHTML = '';
+            display.style.display = 'none';
+        }
+    }
+
+    async function removeUnavailableDriver(name) {
+        if (!currentDayFilter || currentType !== 'dagboek') return;
+        const dayKey = dateKeyForCurrentDay();
+        const currentSelected = unavailableDriversByDay[dayKey] || await loadUnavailableFromServer(dayKey);
+        const nextSelected = currentSelected.filter(item => item !== name);
+        unavailableDriversByDay[dayKey] = nextSelected;
+        await saveUnavailableToServer(dayKey, nextSelected);
+        await renderUnavailableDriverSelector();
+    }
+
+    function initializeUnavailableDriverOptions() {
+        const select = document.getElementById('unavailableDriverSelect');
+        if (!select) return;
+
+        select.innerHTML = '<option value="">-- Kies --</option>' +
+            driverList.map(d => `<option value="${escapeAttr(d)}">${escapeHtml(d)}</option>`).join('');
+        select.onchange = async function () {
+            if (!currentDayFilter || currentType !== 'dagboek') return;
+            const dayKey = dateKeyForCurrentDay();
+
+            // Ensure cache is populated before modifying it
+            if (!unavailableDriversByDay[dayKey]) {
+                unavailableDriversByDay[dayKey] = await loadUnavailableFromServer(dayKey);
+            }
+
+            const currentSelected = unavailableDriversByDay[dayKey] || [];
+            const chosen = this.value;
+            if (!chosen) return;
+
+            if (!currentSelected.includes(chosen)) {
+                unavailableDriversByDay[dayKey] = [...currentSelected, chosen];
+                await saveUnavailableToServer(dayKey, unavailableDriversByDay[dayKey]);
+            }
+            this.value = '';
+            renderUnavailableDriverSelector();
+        };
+        renderUnavailableDriverSelector();
+    }
 
     async function init() {
         const now = new Date();
@@ -780,7 +1104,9 @@
 
         attachHistoryFilterHandlers();
 
+        unavailableDriversByDay = {};   // populated on demand from server
         await loadDropdownData();
+        initializeUnavailableDriverOptions();
         await loadQuoteHistory();
         await refreshTable();
         updateExportBtn();
@@ -788,15 +1114,23 @@
 
     async function loadDropdownData() {
         try {
-            const [buses, drivers, busRows, seaters, tripTypes] = await Promise.all([
+            const [buses, drivers, adminDrivers, busRows, seaters, tripTypes] = await Promise.all([
                 fetch('/buses').then(r => r.json()),
                 fetch('/drivers').then(r => r.json()),
+                fetch('/admin/drivers').then(r => r.json()),
                 fetch('/admin/buses').then(r => r.json()),
                 fetch('/seaters').then(r => r.json()),
                 fetch('/trip-types').then(r => r.json())
             ]);
             busList = buses;
             driverList = drivers;
+            driverBirthdayMap = {};
+            adminDrivers.forEach(row => {
+                const name = (row.DriverName || row.driverName || '').trim();
+                const dob = row.DOB || row.dob;
+                if (!name || !dob) return;
+                driverBirthdayMap[normalizeDriverName(name)] = dob;
+            });
             seaterList = seaters;
             tripTypeList = tripTypes;
             seaterMap = {};
@@ -819,6 +1153,17 @@
     function attachHistoryFilterHandlers() {
         ['historyYearFilter','historyClientFilter','historyBusFilter','historyDestinationFilter','historyTipeFilter','historyAanvaarFilter','historyStreekFilter']
             .forEach(id => document.getElementById(id).addEventListener('change', readHistoryFilters));
+
+        // The Klient filter is free text (like the Kwotasie table's own
+        // Klient box): filter as soon as Enter is pressed, rather than
+        // waiting for the field to lose focus.
+        document.getElementById('historyClientFilter').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                readHistoryFilters();
+                this.blur();
+            }
+        });
     }
 
     function readHistoryFilters() {
@@ -849,12 +1194,14 @@
         currentDayFilter = String(day);
         renderTable();
         renderDateFilterCalendar();
+        renderUnavailableDriverSelector();
     }
 
     function clearDateFilter() {
         currentDayFilter = '';
         renderTable();
         renderDateFilterCalendar();
+        renderUnavailableDriverSelector();
     }
 
     function renderDateFilterCalendar() {
@@ -898,6 +1245,9 @@
         document.getElementById('btnDagboek').classList.toggle('active', type === 'dagboek');
         document.getElementById('btnKwotasie').classList.toggle('active', type === 'kwotasie');
         document.getElementById('pageTitle').textContent = type === 'dagboek' ? 'Dagboek' : 'Kwotasie';
+        const separator = document.getElementById('kwotasieSeparator');
+        if (separator) separator.style.display = type === 'kwotasie' ? 'block' : 'none';
+        renderUnavailableDriverSelector();
         refreshTable();
         updateExportBtn();
     }
@@ -915,8 +1265,12 @@
             seaterList.map(s => `<option value="${escapeAttr(s)}" ${String(s) === String(selected) ? 'selected' : ''}>${escapeHtml(String(s))}</option>`).join('');
     }
     function tripTypeOptions(selected) {
+        const normalizedSelected = normalizeTripType(selected);
         return '<option value=""></option>' +
-            tripTypeList.map(t => `<option value="${escapeAttr(t)}" ${t === selected ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
+            tripTypeList.map(t => {
+                const item = normalizeTripType(t);
+                return `<option value="${escapeAttr(item)}" ${item === normalizedSelected ? 'selected' : ''}>${escapeHtml(item)}</option>`;
+            }).join('');
     }
 
     async function refreshTable() {
@@ -946,21 +1300,22 @@
         headerCells.push('<th class="col-nr">NR</th>');
         headerCells.push('<th>Datum</th>');
         headerCells.push('<th>Seater</th>');
+        if (isKwotasie) headerCells.push('<th>Tipe Trip</th>');
         if (!isKwotasie) headerCells.push('<th>Trailer</th>');
-        headerCells.push('<th>Klient</th>');
-        headerCells.push('<th>Bestemming</th>');
+        headerCells.push('<th class="col-klient">Klient</th>');
+        headerCells.push('<th class="col-bestemming">Bestemming</th>');
         headerCells.push('<th>Tyd Oplaai</th>');
         headerCells.push('<th>Tyd Terug</th>');
         headerCells.push('<th>Bedrag</th>');
         if (!isKwotasie) headerCells.push('<th>Bestuurder</th>');
         if (!isKwotasie) headerCells.push('<th>Bus</th>');
-        headerCells.push('<th>Opmerkings</th>');
-        if (isKwotasie) headerCells.push('<th>Tipe Trip</th>');
+        headerCells.push('<th class="col-opmerkings">Opmerkings</th>');
         if (isKwotasie) headerCells.push('<th>Datum Terug</th>');
         if (isKwotasie) headerCells.push('<th>Datum Geskep</th>');
         if (!isKwotasie) headerCells.push('<th>Finaliseer Datum</th>');
         if (!isKwotasie) headerCells.push('<th>Betaal</th>');
         if (!isKwotasie) headerCells.push('<th>Faktuur</th>');
+        headerCells.push('<th class="col-copy"></th>');
         headerCells.push('<th class="col-del"></th>');
         const colCount = headerCells.length;
 
@@ -1104,13 +1459,25 @@
         const tipeTripCell = isKwotasie
             ? `<td><select onchange="updateField(${r.id},'tipeTrip',this.value)">${tripTypeOptions(r.tipeTrip)}</select></td>`
             : '';
-        const needsDatumTerug = r.tipeTrip === 'Toer-Retoer' || r.tipeTrip === 'Toer-Oorslaap';
+        const normalizedTripType = normalizeTripType(r.tipeTrip);
+        const needsDatumTerug = normalizedTripType === 'Toer-Retoer' || normalizedTripType === 'Toer-Oorslaap';
         const datumTerugCell = isKwotasie
             ? (needsDatumTerug
                 ? `<td><input type="date" value="${escapeAttr(r.datumTerug)}" onchange="updateField(${r.id},'datumTerug',this.value)"></td>`
                 : `<td style="text-align:center;color:var(--muted)">—</td>`)
             : '';
         const dateCreatedCell = isKwotasie ? readOnlyCell(r.dateCreated) : '';
+
+        // Tyd Terug: for a multi-day trip (Toer-Retoer / Toer-Oorslaap with
+        // a Datum Terug set that differs from Datum), show the return date
+        // instead of a time input until that day actually arrives -- there's
+        // no real return time to enter yet. Once Datum Terug is today or in
+        // the past, switch to the normal editable time input.
+        const isMultiDayTrip = (normalizeTripType(r.tipeTrip) === 'Toer-Retoer' || normalizeTripType(r.tipeTrip) === 'Toer-Oorslaap')
+            && r.datumTerug && r.datumTerug !== r.datum;
+        const tydTerugCell = (isMultiDayTrip && todayISO() < r.datumTerug)
+            ? `<td class="col-tyd-terug-pending" title="Kom terug op ${escapeAttr(formatDateNoYear(r.datumTerug))}">${escapeHtml(formatDateNoYear(r.datumTerug))}</td>`
+            : `<td><input type="time" step="60" value="${escapeAttr(normalizeTimeValue(r.tydTerug))}" onchange="updateField(${r.id},'tydTerug',normalizeTimeValue(this.value))"></td>`;
 
         // finaliseerDatum: stamped automatically when a Kwotasie is ticked
         // and moved across, shown read-only in Dagboek (not in Kwotasie,
@@ -1122,28 +1489,31 @@
         const faktuurCell = !isKwotasie
             ? `<td><input type="text" value="${escapeAttr(r.faktuur)}" onchange="updateField(${r.id},'faktuur',this.value)" placeholder="—"></td>`
             : '';
+        const copyButton = `<td class="col-copy"><button type="button" class="row-copy-btn" onclick="duplicateRow(${r.id})" title="Kopieer ry">⧉</button></td>`;
+        const deleteButton = `<td class="col-del"><button type="button" class="row-del-btn" onclick="deleteRow(${r.id})" title="Verwyder ry">&#10005;</button></td>`;
 
         return `<tr data-id="${r.id}">
             ${checkboxCell}
             <td class="col-nr">${index + 1}</td>
             <td><input type="date" value="${escapeAttr(r.datum)}" onchange="updateField(${r.id},'datum',this.value)"></td>
             ${seaterCell}
+            ${tipeTripCell}
             ${trailerCell}
-            <td><input type="text" value="${escapeAttr(r.klientID)}" list="quoteKlientList" onchange="updateField(${r.id},'klientID',this.value)" placeholder="Maatskappy"></td>
-            <td><input type="text" value="${escapeAttr(r.bestemming)}" list="quoteBestemmingList" onchange="updateField(${r.id},'bestemming',this.value)" placeholder="—"></td>
+            <td class="col-klient"><input type="text" value="${escapeAttr(r.klientID)}" list="quoteKlientList" onchange="updateField(${r.id},'klientID',this.value)" placeholder="Maatskappy"></td>
+            <td class="col-bestemming"><input type="text" value="${escapeAttr(r.bestemming)}" list="quoteBestemmingList" onchange="updateField(${r.id},'bestemming',this.value)" placeholder="—"></td>
             <td><input type="time" step="60" value="${escapeAttr(normalizeTimeValue(r.tydOplaai))}" onchange="updateField(${r.id},'tydOplaai',normalizeTimeValue(this.value))"></td>
-            <td><input type="time" step="60" value="${escapeAttr(normalizeTimeValue(r.tydTerug))}" onchange="updateField(${r.id},'tydTerug',normalizeTimeValue(this.value))"></td>
+            ${tydTerugCell}
             <td><div class="bedrag-wrap"><span>R</span><input type="number" step="0.01" value="${escapeAttr(r.bedrag)}" onchange="updateField(${r.id},'bedrag',this.value)" placeholder="0.00"></div></td>
             ${bestuurderCell}
             ${busCell}
-            <td><input type="text" value="${escapeAttr(r.opmerkings)}" onchange="updateField(${r.id},'opmerkings',this.value)" placeholder="—"></td>
-            ${tipeTripCell}
+            <td class="col-opmerkings"><input type="text" value="${escapeAttr(r.opmerkings)}" onchange="updateField(${r.id},'opmerkings',this.value)" placeholder="—"></td>
             ${datumTerugCell}
             ${dateCreatedCell}
             ${finaliseerCell}
             ${paidCell}
             ${faktuurCell}
-            <td class="col-del"><button class="row-del-btn" onclick="deleteRow(${r.id})" title="Verwyder ry">&#10005;</button></td>
+            ${copyButton}
+            ${deleteButton}
         </tr>`;
     }
 
@@ -1186,18 +1556,17 @@
             ).join('');
         }
         const years   = [...new Set(historyRows.map(r=>String((r.datum||'').slice(0,4))).filter(Boolean))].sort((a,b)=>b-a);
-        const clients = [...new Set(historyRows.map(r=>r.klientID||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
         const buses   = [...new Set(historyRows.map(r=>r.bus||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
-        const clientRows = historyFilters.client
-            ? historyRows.filter(r => (r.klientID || '') === historyFilters.client)
+        const clientFilterText = (historyFilters.client || '').trim().toLowerCase();
+        const clientRows = clientFilterText
+            ? historyRows.filter(r => (r.klientID || '').toLowerCase().includes(clientFilterText))
             : historyRows;
         const dests   = [...new Set(clientRows.map(r=>r.bestemming||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
         historyFilters.destination = historyFilters.destination.filter(destination => dests.includes(destination));
         const streke  = [...new Set(historyRows.map(r=>r.streek||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
-        const tipes   = [...new Set(historyRows.map(r=>r.tipeTrip||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
+        const tipes   = [...new Set(historyRows.map(r => normalizeTripType(r.tipeTrip)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
 
         buildSel('historyYearFilter',       years,   'Alle Jare',         historyFilters.year);
-        buildSel('historyClientFilter',     clients, 'Alle Kliente',      historyFilters.client);
         buildSel('historyBusFilter',        buses,   'Alle Busse',        historyFilters.bus);
         buildSel('historyDestinationFilter',dests,   'Alle Bestemmings',  historyFilters.destination);
         buildSel('historyTipeFilter',       tipes,   'Alle Tipes',        historyFilters.tipe);
@@ -1205,12 +1574,13 @@
 
         const filtered = historyRows
             .filter(r => {
+                const normalizedTripType = normalizeTripType(r.tipeTrip);
                 const yearMatch   = !historyFilters.year        || String((r.datum||'').slice(0,4)) === historyFilters.year;
-                const clientMatch = !historyFilters.client      || (r.klientID||'')   === historyFilters.client;
+                const clientMatch = !clientFilterText            || (r.klientID||'').toLowerCase().includes(clientFilterText);
                 const busMatch    = !historyFilters.bus         || (r.bus||'')        === historyFilters.bus;
                 const destMatch   = historyFilters.destination.length === 0 || historyFilters.destination.includes(r.bestemming || '');
                 const streekMatch = !historyFilters.streek      || (r.streek||'')     === historyFilters.streek;
-                const tipeMatch   = !historyFilters.tipe        || (r.tipeTrip||'')   === historyFilters.tipe;
+                const tipeMatch   = !historyFilters.tipe        || normalizedTripType === normalizeTripType(historyFilters.tipe);
                 const aanvaarMatch= historyFilters.aanvaar === '' || historyFilters.aanvaar == null || String(r.aanvaar) === String(historyFilters.aanvaar);
                 return yearMatch && clientMatch && busMatch && destMatch && streekMatch && tipeMatch && aanvaarMatch;
             })
@@ -1334,6 +1704,9 @@
         try {
             const result = await apiCreateEntry(entry, currentType);
             entry.id = result.id;
+            // The server stamps Datum Geskep; show it straight away instead of
+            // a blank cell until the next reload.
+            entry.dateCreated = result.dateCreated || entry.dateCreated;
             currentRows.push(entry);
             if (currentType === 'kwotasie') {
                 historyRows.unshift({ ...entry });
@@ -1346,6 +1719,37 @@
             renderDateFilterCalendar();
         } catch (e) {
             setStatus('Kon nie ry byvoeg nie: ' + e.message);
+        }
+    }
+
+    async function duplicateRow(id) {
+        const rowIndex = currentRows.findIndex(r => Number(r.id) === Number(id));
+        const source = currentRows[rowIndex];
+        if (!source) return;
+
+        const payload = { ...source };
+        delete payload.id;
+        delete payload.tripGroupId;
+        delete payload.dateCreated;
+        delete payload.finaliseerDatum;
+
+        try {
+            const created = await apiCreateEntry(payload, currentType);
+            const copy = { ...payload, id: created.id, dateCreated: created.dateCreated || '' };
+
+            if (rowIndex >= 0) currentRows.splice(rowIndex + 1, 0, copy);
+            if (currentType === 'kwotasie') {
+                historyRows.unshift({ ...copy });
+                historyRows.sort((a, b) => {
+                    const dateDiff = (b.datum || '').localeCompare(a.datum || '');
+                    return dateDiff !== 0 ? dateDiff : (Number(b.id) || 0) - (Number(a.id) || 0);
+                });
+            }
+            renderTable();
+            renderDateFilterCalendar();
+            setStatus('Ry gekopieer');
+        } catch (e) {
+            setStatus('Kon nie ry kopieer nie: ' + e.message);
         }
     }
 
@@ -1363,17 +1767,17 @@
 
     async function moveToDagboek(id, checkbox) {
         const entry = currentRows.find(r => r.id === id);
-        const today = new Date().toISOString().slice(0, 10);
         try {
-            // First stamp the finalisation date, then move to dagboek
-            await apiUpdateField(id, 'finaliseerDatum', today);
+            // The server stamps Finaliseer Datum (today's date, at the moment
+            // of this click) as part of accepting the entry.
             const result = await apiAccept(id);
+            const today = (result && result.finaliseerDatum) || '';
             currentRows = currentRows.filter(r => r.id !== id);
             historyRows = historyRows.filter(r => Number(r.id) !== Number(id));
             renderTable();
             const days = result && result.days_created;
             const daysMsg = days > 1 ? ` — ${days} dae geskep in Dagboek` : '';
-            setStatus(`Verplaas na Dagboek${entry && entry.klientID ? ': ' + entry.klientID : ''} (${today})${daysMsg}`);
+            setStatus(`Verplaas na Dagboek${entry && entry.klientID ? ': ' + entry.klientID : ''}${today ? ' (' + today + ')' : ''}${daysMsg}`);
         } catch (e) {
             if (checkbox) checkbox.checked = false;
             setStatus('Kon nie verplaas nie: ' + e.message);
@@ -1391,6 +1795,122 @@
         return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
     function escapeAttr(s) { return escapeHtml(s); }
+
+    function printDagboek() {
+        const EXCLUDED = new Set([
+            'trailer', 'opmerkings', 'finaliseer datum', 'datum'
+        ]);
+
+        const sourceTable = document.querySelector('#tableHead')?.closest('table');
+        if (!sourceTable) { alert('Geen tabel om te print nie.'); return; }
+
+        const allHeaders = [...sourceTable.querySelectorAll('thead th')];
+        const keepIdx = allHeaders.reduce((acc, th, i) => {
+            const text = (th.textContent || '').trim().toLowerCase();
+            if (!th.classList.contains('col-copy') && !th.classList.contains('col-del') && !EXCLUDED.has(text)) acc.push(i);
+            return acc;
+        }, []);
+
+        const printHeaders = keepIdx
+            .map(i => `<th>${allHeaders[i].innerHTML}</th>`)
+            .join('');
+
+        const allRows = [...sourceTable.querySelectorAll('tbody tr[data-id]')];
+        const printRows = allRows.map(tr => {
+            const cells = [...tr.querySelectorAll('td')];
+            const rowCells = keepIdx.map(i => {
+                const td = cells[i];
+                if (!td) return '<td></td>';
+                const input = td.querySelector('input, select');
+                const text = input
+                    ? (input.type === 'checkbox' ? (input.checked ? '\u2713' : '') : (input.value || ''))
+                    : td.textContent.trim();
+                return `<td>${escapeHtml(text)}</td>`;
+            }).join('');
+            return `<tr>${rowCells}</tr>`;
+        }).join('');
+
+        if (!printRows) { alert('Geen rye om te print nie.'); return; }
+
+        const month = document.getElementById('monthSelect');
+        const year  = document.getElementById('yearSelect');
+        const day   = document.getElementById('daySelect');
+        const mLabel  = month?.options[month.selectedIndex]?.text || '';
+        const yLabel  = year?.value || '';
+        const dLabel  = day?.value  ? ' \u2014 Dag ' + day.value : '';
+        const periodLabel = mLabel + ' ' + yLabel + dLabel;
+
+        // "Geprint" shows the date(s) of the entries in the dagboek (read from
+        // the Datum column, which itself is not printed) rather than today.
+        const datumIdx = allHeaders.findIndex(th =>
+            (th.textContent || '').trim().toLowerCase() === 'datum');
+        const entryDates = datumIdx < 0 ? [] : [...new Set(allRows.map(tr => {
+            const td = tr.querySelectorAll('td')[datumIdx];
+            const input = td && td.querySelector('input');
+            return ((input ? input.value : (td ? td.textContent : '')) || '').trim().slice(0, 10);
+        }).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+        const fmtDate = iso => {
+            const [y, m, d] = iso.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('af-ZA',
+                {day:'2-digit', month:'long', year:'numeric'});
+        };
+        const dateStr = entryDates.length === 0 ? periodLabel
+            : entryDates.length === 1 ? fmtDate(entryDates[0])
+            : fmtDate(entryDates[0]) + ' \u2013 ' + fmtDate(entryDates[entryDates.length - 1]);
+
+        const html = '<!DOCTYPE html><html><head>'
+            + '<meta charset="UTF-8">'
+            + '<title>Dagboek \u2014 ' + periodLabel + '</title>'
+            + '<style>'
+            + '*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }'
+            + 'body { font-family:Arial,sans-serif; font-size:9pt; color:#1e2428; padding:16px 20px; }'
+            + '.ph { display:flex; justify-content:space-between; align-items:flex-end;'
+            + '      border-bottom:2px solid #1f3864; padding-bottom:8px; margin-bottom:14px; }'
+            + '.ph h1 { font-size:15pt; font-weight:700; color:#1f3864; letter-spacing:.03em; }'
+            + '.ph .sub { font-size:9pt; color:#596068; margin-top:2px; }'
+            + '.ph .db  { text-align:right; font-size:8pt; color:#596068; }'
+            + 'table { width:100%; border-collapse:collapse; table-layout:auto; }'
+            + 'thead th { background:#1f3864; color:#fff; font-size:8pt; font-weight:700;'
+            + '  letter-spacing:.06em; text-transform:uppercase;'
+            + '  padding:5px 6px; text-align:left; border:1px solid #14285a; }'
+            + 'tbody tr:nth-child(even) { background:#eef3fa; }'
+            + 'tbody tr:nth-child(odd)  { background:#ffffff; }'
+            + 'tbody td { font-size:8.5pt; padding:4px 6px;'
+            + '  border:1px solid #bfbfbf; vertical-align:middle; white-space:nowrap; }'
+            + '.pf { margin-top:10px; font-size:7.5pt; color:#9aa0a6;'
+            + '      display:flex; justify-content:space-between; }'
+            + '@media print {'
+            + '  body { padding:8px 10px; }'
+            + '  .no-print { display:none !important; }'
+            + '  @page { size:landscape; margin:10mm; }'
+            + '}'
+            + '</style></head><body>'
+            + '<div class="ph">'
+            + '  <div><h1>Dagboek</h1><div class="sub">' + periodLabel + '</div></div>'
+            + '  <div class="db">Datum: ' + dateStr + '<br>Rye: ' + allRows.length + '</div>'
+            + '</div>'
+            + '<table>'
+            + '<thead><tr>' + printHeaders + '</tr></thead>'
+            + '<tbody>' + printRows + '</tbody>'
+            + '</table>'
+            + '<div class="pf">'
+            + '  <span>Robbert Busdiens \u2014 Dagboek</span>'
+            + '  <span>' + periodLabel + '</span>'
+            + '</div>'
+            + '<div class="no-print" style="margin-top:20px;text-align:center">'
+            + '<button onclick="window.print()" style="padding:10px 28px;background:#1a5fa8;'
+            + 'color:white;border:none;border-radius:3px;font-size:13px;font-weight:700;cursor:pointer">'
+            + '\uD83D\uDDA8 Print / Stoor as PDF</button>'
+            + '<button onclick="window.close()" style="margin-left:12px;padding:10px 20px;'
+            + 'background:#c8cdd1;color:#2b3036;border:none;border-radius:3px;'
+            + 'font-size:13px;font-weight:700;cursor:pointer">Sluit</button>'
+            + '</div>'
+            + '</body></html>';
+
+        const win = window.open('', '_blank', 'width=1100,height=750');
+        win.document.write(html);
+        win.document.close();
+    }
 
     async function exportDagboek() {
         if (currentType !== 'dagboek') return;
@@ -1432,14 +1952,23 @@
             alert('Eksport misluk: ' + err.message);
             console.error(err);
         } finally {
-            btn.disabled = false;
+            btn.disabled = false;  
             btn.textContent = origText;
         }
     }
 
     function updateExportBtn() {
-        const btn = document.getElementById('exportBtn');
-        if (btn) btn.style.display = currentType === 'dagboek' ? '' : 'none';
+        const show = currentType === 'dagboek' ? '' : 'none';
+        const exportBtn = document.getElementById('exportBtn');
+        const printBtn  = document.getElementById('printBtn');
+        if (exportBtn) exportBtn.style.display = show;
+        if (printBtn)  printBtn.style.display  = show;
+        if (currentType !== 'dagboek') {
+            const group   = document.getElementById('unavailableDriverGroup');
+            const display = document.getElementById('unavailableDriverDisplay');
+            if (group)   group.style.display   = 'none';
+            if (display) display.style.display = 'none';
+        }
     }
 
     window.addEventListener('DOMContentLoaded', init);

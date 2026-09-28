@@ -466,6 +466,48 @@
     let currentBusIndex = -1;
     let lastKnownOdometer = NaN;
 
+    const SEATER_GROUP_MAP = {
+        '13 Seater': '15 Seater',
+        '13-Seater': '15 Seater',
+        '15 Seater': '15 Seater',
+        '15-Seater': '15 Seater',
+        '32 Seater': '36 Seater',
+        '32-Seater': '36 Seater',
+        '36 Seater': '36 Seater',
+        '36-Seater': '36 Seater',
+        '55 Seater': '65 Seater',
+        '55-Seater': '65 Seater',
+        '60 Seater': '65 Seater',
+        '60-Seater': '65 Seater',
+        '63 Seater': '65 Seater',
+        '63-Seater': '65 Seater',
+        '65 Seater': '65 Seater',
+        '65-Seater': '65 Seater',
+        '57 Seater': '80 Seater',
+        '57-Seater': '80 Seater',
+        '75 Seater': '80 Seater',
+        '75-Seater': '80 Seater',
+        '80 Seater': '80 Seater',
+        '80-Seater': '80 Seater'
+    };
+
+    function normalizeSeaterGroup(value) {
+        const raw = String(value ?? '').trim();
+        const normalized = raw.replace(/-/g, ' ');
+        return SEATER_GROUP_MAP[raw] || SEATER_GROUP_MAP[normalized] || raw;
+    }
+
+    function getSeaterGroupMatches(value) {
+        const group = normalizeSeaterGroup(value);
+        if (!group) return [];
+
+        const matches = Object.entries(SEATER_GROUP_MAP)
+            .filter(([, normalized]) => normalized === group)
+            .map(([raw]) => raw);
+
+        return matches.length ? matches : [group];
+    }
+
     // Load seaters
     fetch('/seaters')
         .then(r => {
@@ -474,7 +516,7 @@
         })
         .then(data => {
             const sel = document.getElementById('seaterSelect');
-            data.forEach(seater => {
+            [...new Set(data.map(normalizeSeaterGroup).filter(Boolean))].forEach(seater => {
                 const opt = document.createElement('option');
                 opt.value = seater;
                 opt.textContent = seater;
@@ -503,12 +545,16 @@
 
         if (!seater) return;
 
-        fetch(`/buses-by-seater/${encodeURIComponent(seater)}`)
-            .then(r => {
-                if (!r.ok) throw new Error('GET /buses-by-seater returned ' + r.status);
-                return r.json();
-            })
-            .then(data => {
+        const rawSeaters = getSeaterGroupMatches(seater);
+        Promise.all(rawSeaters.map(rawSeater =>
+            fetch(`/buses-by-seater/${encodeURIComponent(rawSeater)}`)
+                .then(r => {
+                    if (!r.ok) throw new Error('GET /buses-by-seater returned ' + r.status);
+                    return r.json();
+                })
+        ))
+            .then(results => {
+                const data = [...new Set(results.flat())].sort();
                 allBuses = data;
                 data.forEach(bus => {
                     const opt = document.createElement('option');
