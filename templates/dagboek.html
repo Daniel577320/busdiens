@@ -218,6 +218,34 @@
     }
     .date-filter-clear:hover { background: #bcc2c8; color: var(--text); }
 
+    /* Holiday markers on the PERIODE calendar */
+    .day-cell.holiday-public { background: #2f7de1; color: #fff; }
+    .day-cell.holiday-school { background: #43a047; color: #fff; }
+    .day-cell.holiday-public:hover { background: #2569c0; border-color: #1a4f94; }
+    .day-cell.holiday-school:hover { background: #388e3c; border-color: #2a6b2e; }
+    /* the selected day keeps its holiday colour but gets a dark ring */
+    .day-cell.selected.holiday-public,
+    .day-cell.selected.holiday-school { box-shadow: inset 0 0 0 2px var(--text); border-color: var(--text); }
+    .holiday-legend { display: flex; gap: 12px; margin-top: 8px; font-size: 10px; color: var(--muted); }
+    .holiday-legend span { display: inline-flex; align-items: center; gap: 4px; }
+    .holiday-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+    .holiday-panel { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .holiday-panel label { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 6px 0 2px; }
+    .holiday-panel input, .holiday-panel select {
+        width: 100%; box-sizing: border-box; padding: 5px 6px; font-size: 11px;
+        border: 1px solid var(--border); border-radius: 2px; background: var(--white); color: var(--text);
+    }
+    .holiday-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .holiday-actions button {
+        flex: 1; padding: 6px 4px; border: 1px solid var(--border); border-radius: 2px;
+        font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+    }
+    .holiday-actions .holiday-mark { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .holiday-actions .holiday-mark:hover { background: #154e8e; }
+    .holiday-actions .holiday-unmark { background: var(--panel); color: var(--bad); }
+    .holiday-actions .holiday-unmark:hover { background: #bcc2c8; }
+    .holiday-msg { margin-top: 6px; font-size: 10px; color: var(--muted); min-height: 12px; }
+
     /* ── TYPE SWITCHER ── */
     .type-btn {
         display: block;
@@ -429,6 +457,7 @@
     td.col-tyd-terug-pending { text-align: center; color: var(--muted); font-style: italic; white-space: nowrap; }
     th.col-copy, td.col-copy { text-align: center; width: 28px; }
     th.col-del, td.col-del { text-align: center; width: 32px; }
+    th.col-cancel, td.col-cancel { text-align: center; width: 28px; }
 
     .grid-wrapper td input, .grid-wrapper td select {
         width: 100%;
@@ -462,6 +491,7 @@
     .bedrag-wrap input { min-width: 70px; text-align: right; }
 
     .row-copy-btn,
+    .row-cancel-btn,
     .row-del-btn {
         background: none;
         border: none;
@@ -475,8 +505,24 @@
         color: var(--accent);
     }
     .row-copy-btn:hover { color: #113f75; }
+    .row-cancel-btn {
+        color: var(--muted);
+    }
+    .row-cancel-btn:hover { color: var(--bad); }
+    .row-cancel-btn.active { color: var(--bad); }
     .row-del-btn {
         color: var(--bad);
+    }
+    /* Cancelled entry: a permanent line through the whole row. Drawn as an
+       overlay on each cell so it also covers inputs/selects, and it ignores
+       the mouse so nothing in the row becomes unclickable. */
+    .grid-wrapper tr.row-cancelled td { position: relative; }
+    .grid-wrapper tr.row-cancelled td::after {
+        content: '';
+        position: absolute;
+        left: 0; right: 0; top: 50%;
+        border-top: 2px solid var(--bad, #c62828);
+        pointer-events: none;
     }
     .row-del-btn:hover { color: #8e1f1f; }
 
@@ -541,6 +587,21 @@
         text-transform: uppercase;
         color: var(--muted);
     }
+    .history-control-clear { flex: 0 0 auto; min-width: 0; }
+    .history-clear-btn {
+        padding: 6px 12px;
+        font-family: 'Barlow', sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        cursor: pointer;
+    }
+    .history-clear-btn:hover { background: #bcc2c8; }
     .history-control input, .history-control select {
         width: 100%;
         padding: 6px 8px;
@@ -657,6 +718,17 @@
     }
     .btn-print:hover    { background: #154e8e; }
     .btn-print:disabled { background: #888; cursor: default; }
+    .dagboek-notes {
+        flex: 1;
+        min-width: 160px;
+        padding: 8px 10px;
+        font-family: 'Barlow', sans-serif;
+        font-size: 12px;
+        border: 1px solid var(--border, #c8cdd1);
+        border-radius: 2px;
+        background: #fff;
+        color: #1e2428;
+    }
 </style>
 </head>
 <body>
@@ -686,6 +758,27 @@
                     </div>
                     <div class="date-filter-grid" id="dateFilterGrid"></div>
                     <button type="button" class="date-filter-clear" onclick="clearDateFilter()">Alle dae</button>
+                    <button type="button" class="date-filter-clear" id="holidayToggleBtn" onclick="toggleHolidayPanel()">Vakansiedae &#9662;</button>
+                    <div class="holiday-legend">
+                        <span><i style="background:#2f7de1"></i>Publiek</span>
+                        <span><i style="background:#43a047"></i>Skool</span>
+                    </div>
+                    <div class="holiday-panel" id="holidayPanel" style="display:none">
+                        <label for="holidayFrom">Van</label>
+                        <input type="date" id="holidayFrom">
+                        <label for="holidayTo">Tot</label>
+                        <input type="date" id="holidayTo">
+                        <label for="holidayType">Tipe</label>
+                        <select id="holidayType">
+                            <option value="publiek">Publieke vakansiedag (blou)</option>
+                            <option value="skool">Skoolvakansie (groen)</option>
+                        </select>
+                        <div class="holiday-actions">
+                            <button type="button" class="holiday-mark" onclick="applyHolidayRange()">Merk</button>
+                            <button type="button" class="holiday-unmark" onclick="clearHolidayRange()">Verwyder</button>
+                        </div>
+                        <div class="holiday-msg" id="holidayMsg"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -719,6 +812,9 @@
                 <div id="loadStatus" style="font-family:'Source Code Pro',monospace;font-size:11px;color:var(--muted)"></div>
             </div>
             <button class="btn-print"  id="printBtn"  onclick="printDagboek()"  style="display:none">&#128438; Print</button>
+            <input type="text" id="dagboekNotes" class="dagboek-notes" style="display:none"
+                   placeholder="Notas / addisionele inligting (word saam gedruk)…" autocomplete="off"
+                   oninput="saveDagboekNotes()">
             <button class="btn-export" id="exportBtn" onclick="exportDagboek()" style="display:none">&#8659; Eksporteer</button>
         </div>
 
@@ -747,8 +843,8 @@
                     <input type="text" id="historyClientFilter" list="historyKlientOptions" autocomplete="off" placeholder="Tik 'n deel van 'n klient naam...">
                 </div>
                 <div class="history-control">
-                    <label for="historyBusFilter">Bus</label>
-                    <select id="historyBusFilter"></select>
+                    <label for="historySeaterFilter">Seater</label>
+                    <select id="historySeaterFilter"></select>
                 </div>
                 <div class="history-control">
                     <label for="historyDestinationFilter">Bestemming</label>
@@ -766,24 +862,29 @@
                     <label for="historyStreekFilter">Streek</label>
                     <select id="historyStreekFilter"></select>
                 </div>
+                <div class="history-control history-control-clear">
+                    <label>&nbsp;</label>
+                    <button type="button" class="history-clear-btn" onclick="clearHistoryFilters()">Maak filters skoon</button>
+                </div>
             </div>
             <div class="history-table-wrap">
                 <table class="history-table">
                     <thead>
                         <tr>
                             <th>Datum</th>
-                            <th>Bus</th>
+                            <th>Seater</th>
                             <th>Klient</th>
                             <th>Bestemming</th>
                             <th class="col-accept">Aanvaar</th>
                             <th>Tipe Trip</th>
                             <th>Streek</th>
                             <th>Bedrag</th>
-                            <th>Bestuurder</th>
+                            <th>Datum Geskep</th>
+                            <th>Opmerkings</th>
                         </tr>
                     </thead>
                     <tbody id="historyTableBody">
-                        <tr><td colspan="7"><div class="history-empty">Laai…</div></td></tr>
+                        <tr><td colspan="10"><div class="history-empty">Laai…</div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -873,7 +974,7 @@
         return { id: null, datum: defaultDate, bus: '', klientID: '', bestemming: '',
                  tydOplaai: '', tydTerug: '', bedrag: '', bestuurder: '', opmerkings: '',
                  seater: '', tipeTrip: '', dateCreated: '', finaliseerDatum: '', datumTerug: '',
-                 trailer: 0, faktuur: '' };
+                 trailer: 0, gekanselleer: 0, faktuur: '' };
     }
 
     function normalizeTripType(value) {
@@ -944,7 +1045,7 @@
     let currentYear, currentMonthIdx;
     let currentRows = [];   // rows currently rendered, straight from Access
     let historyRows = [];
-    let historyFilters = { year: '', client: '', bus: '', destination: [], streek: '', tipe: '', aanvaar: '' };
+    let historyFilters = { year: '', client: '', seater: '', destination: [], streek: '', tipe: '', aanvaar: '' };
     let highlightedQuoteId = null;
     let unavailableDriversByDay = {};   // cache: dateKey -> [driverName, ...]
 
@@ -1106,6 +1207,7 @@
 
         unavailableDriversByDay = {};   // populated on demand from server
         await loadDropdownData();
+        await loadHolidays();
         initializeUnavailableDriverOptions();
         await loadQuoteHistory();
         await refreshTable();
@@ -1151,7 +1253,7 @@
     }
 
     function attachHistoryFilterHandlers() {
-        ['historyYearFilter','historyClientFilter','historyBusFilter','historyDestinationFilter','historyTipeFilter','historyAanvaarFilter','historyStreekFilter']
+        ['historyYearFilter','historyClientFilter','historySeaterFilter','historyDestinationFilter','historyTipeFilter','historyAanvaarFilter','historyStreekFilter']
             .forEach(id => document.getElementById(id).addEventListener('change', readHistoryFilters));
 
         // The Klient filter is free text (like the Kwotasie table's own
@@ -1166,15 +1268,117 @@
         });
     }
 
+    function clearHistoryFilters() {
+        historyFilters = { year: '', client: '', seater: '', destination: [], streek: '', tipe: '', aanvaar: '' };
+        document.getElementById('historyClientFilter').value = '';
+        document.getElementById('historyAanvaarFilter').value = '';
+        renderQuoteHistory();   // rebuilds every dropdown from the cleared state
+    }
+
     function readHistoryFilters() {
         historyFilters.year        = document.getElementById('historyYearFilter').value;
         historyFilters.client      = document.getElementById('historyClientFilter').value;
-        historyFilters.bus         = document.getElementById('historyBusFilter').value;
+        historyFilters.seater      = document.getElementById('historySeaterFilter').value;
         historyFilters.destination = [...document.getElementById('historyDestinationFilter').selectedOptions].map(option => option.value);
         historyFilters.tipe        = document.getElementById('historyTipeFilter').value;
         historyFilters.aanvaar     = document.getElementById('historyAanvaarFilter').value;
         historyFilters.streek      = document.getElementById('historyStreekFilter').value;
         renderQuoteHistory();
+    }
+
+    // ── Holidays on the calendar (persisted server-side, one entry per day) ──
+    let holidayMap = {};   // { 'YYYY-MM-DD': 'publiek' | 'skool' }
+
+    async function loadHolidays() {
+        try {
+            const r = await fetch('/dagboek/holidays');
+            holidayMap = r.ok ? await r.json() : {};
+        } catch (e) {
+            holidayMap = {};
+        }
+    }
+
+    function toggleHolidayPanel() {
+        const panel = document.getElementById('holidayPanel');
+        const open = panel.style.display === 'none';
+        panel.style.display = open ? 'block' : 'none';
+        document.getElementById('holidayToggleBtn').innerHTML = open ? 'Vakansiedae &#9652;' : 'Vakansiedae &#9662;';
+        if (open) {
+            const from = document.getElementById('holidayFrom');
+            const to = document.getElementById('holidayTo');
+            if (!from.value) {
+                const day = currentDayFilter ? String(currentDayFilter).padStart(2, '0') : '01';
+                from.value = `${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}-${day}`;
+            }
+            if (!to.value) to.value = from.value;
+        }
+    }
+
+    function holidayMsg(text) {
+        const el = document.getElementById('holidayMsg');
+        if (el) el.textContent = text || '';
+    }
+
+    function readHolidayRange() {
+        const from = document.getElementById('holidayFrom').value;
+        const to = document.getElementById('holidayTo').value || from;
+        if (!from) { holidayMsg('Kies eers \'n begindatum.'); return null; }
+        if (to < from) { holidayMsg('"Tot" mag nie voor "Van" wees nie.'); return null; }
+        return { start: from, end: to };
+    }
+
+    function holidayDaysBetween(start, end) {
+        const out = [];
+        const d = new Date(start + 'T00:00:00');
+        const stop = new Date(end + 'T00:00:00');
+        while (d <= stop) {
+            out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+            d.setDate(d.getDate() + 1);
+        }
+        return out;
+    }
+
+    async function applyHolidayRange() {
+        const range = readHolidayRange();
+        if (!range) return;
+        const tipe = document.getElementById('holidayType').value;
+        try {
+            const r = await fetch('/dagboek/holidays', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...range, tipe })
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.error || `Bediener fout ${r.status}`);
+            }
+            holidayDaysBetween(range.start, range.end).forEach(d => { holidayMap[d] = tipe; });
+            renderDateFilterCalendar();
+            holidayMsg('Gemerk.');
+        } catch (e) {
+            holidayMsg('Kon nie stoor nie: ' + e.message);
+        }
+    }
+
+    async function clearHolidayRange() {
+        const range = readHolidayRange();
+        if (!range) return;
+        try {
+            const r = await fetch('/dagboek/holidays/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(range)
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.error || `Bediener fout ${r.status}`);
+            }
+            holidayDaysBetween(range.start, range.end).forEach(d => { delete holidayMap[d]; });
+            renderDateFilterCalendar();
+            holidayMsg('Verwyder.');
+        } catch (e) {
+            holidayMsg('Kon nie verwyder nie: ' + e.message);
+        }
     }
 
     function shiftCalendarMonth(offset) {
@@ -1229,7 +1433,11 @@
             const classes = ['day-cell'];
             if (selected) classes.push('selected');
             if (hasData) classes.push('has-data');
-            cells.push(`<button type="button" class="${classes.join(' ')}" onclick="selectCalendarDay(${day})">${day}</button>`);
+            const holiday = holidayMap[dayString];
+            let tip = '';
+            if (holiday === 'publiek') { classes.push('holiday-public'); tip = ' title="Publieke vakansiedag"'; }
+            else if (holiday === 'skool') { classes.push('holiday-school'); tip = ' title="Skoolvakansie"'; }
+            cells.push(`<button type="button" class="${classes.join(' ')}"${tip} onclick="selectCalendarDay(${day})">${day}</button>`);
         }
 
         while (cells.length % 7 !== 0) {
@@ -1315,6 +1523,7 @@
         if (!isKwotasie) headerCells.push('<th>Finaliseer Datum</th>');
         if (!isKwotasie) headerCells.push('<th>Betaal</th>');
         if (!isKwotasie) headerCells.push('<th>Faktuur</th>');
+        if (!isKwotasie) headerCells.push('<th class="col-cancel"></th>');
         headerCells.push('<th class="col-copy"></th>');
         headerCells.push('<th class="col-del"></th>');
         const colCount = headerCells.length;
@@ -1376,6 +1585,7 @@
         document.getElementById('rowCount').textContent = displayRows.length;
         renderSuggestionDatalists();
         renderDateFilterCalendar();
+        if (!isKwotasie) loadDagboekNotes();
     }
 
     function busSeaterLabel(busName) {
@@ -1392,13 +1602,14 @@
         const v = (value || '').trim().toUpperCase();
         if (!v) return null;
         if (v === 'DD' || v.includes('DD')) return { bg: '#1565c0', fg: '#ffffff' };       // Blue
+        if (v === 'Other' || v.includes('OTHER')) return { bg: '#67127a', fg: '#ffffff' }; // Grey
         if (v.includes('PB1') || v.includes('PB2')) return { bg: '#6a1b9a', fg: '#ffffff' }; // Purple
         const match = v.match(/\d+/);
         if (!match) return null;
         const num = parseInt(match[0], 10);
         if (num === 80) return { bg: '#2e7d32', fg: '#ffffff' };              // Green
         if (num === 75) return { bg: '#2e7d32', fg: '#ffffff' };              // Dark Yellow
-        if (num === 58) return { bg: '#ad1457', fg: '#ffffff' };              // Dark Pink
+        if (num === 57) return { bg: '#ad1457', fg: '#ffffff' };              // Dark Pink
         if (num === 40) return { bg: '#fffe04', fg: '#1e2428' };              // Geel
         if (num === 36 || num === 32) return { bg: '#ef6c00', fg: '#ffffff' }; // Orange
         if (num >= 13 && num <= 22) return { bg: '#ec407a', fg: '#ffffff' };   // Pink
@@ -1473,9 +1684,17 @@
         // instead of a time input until that day actually arrives -- there's
         // no real return time to enter yet. Once Datum Terug is today or in
         // the past, switch to the normal editable time input.
-        const isMultiDayTrip = (normalizeTripType(r.tipeTrip) === 'Toer-Retoer' || normalizeTripType(r.tipeTrip) === 'Toer-Oorslaap')
-            && r.datumTerug && r.datumTerug !== r.datum;
-        const tydTerugCell = (isMultiDayTrip && todayISO() < r.datumTerug)
+        // Show the return date label on every day that is NOT the final return day.
+        // - Cloned intermediate days: tydTerug is NULL (set by backend)
+        // - First/departure day (original row): tydTerug has a value but
+        //   datum !== datumTerug tells us it is still not the return day.
+        // Only the row where datum === datumTerug gets the actual time input.
+        const isMultiDayType = normalizeTripType(r.tipeTrip) === 'Toer-Retoer'
+            || normalizeTripType(r.tipeTrip) === 'Toer-Oorslaap';
+        const isMultiDayTrip = isMultiDayType
+            && r.datumTerug
+            && r.datum !== r.datumTerug;   // any day that is not the return day
+        const tydTerugCell = isMultiDayTrip
             ? `<td class="col-tyd-terug-pending" title="Kom terug op ${escapeAttr(formatDateNoYear(r.datumTerug))}">${escapeHtml(formatDateNoYear(r.datumTerug))}</td>`
             : `<td><input type="time" step="60" value="${escapeAttr(normalizeTimeValue(r.tydTerug))}" onchange="updateField(${r.id},'tydTerug',normalizeTimeValue(this.value))"></td>`;
 
@@ -1489,10 +1708,14 @@
         const faktuurCell = !isKwotasie
             ? `<td><input type="text" value="${escapeAttr(r.faktuur)}" onchange="updateField(${r.id},'faktuur',this.value)" placeholder="—"></td>`
             : '';
+        const cancelled = isPaidValue(r.gekanselleer);
+        const cancelButton = !isKwotasie
+            ? `<td class="col-cancel"><button type="button" class="row-cancel-btn${cancelled ? ' active' : ''}" onclick="toggleCancel(${r.id}, this)" title="${cancelled ? 'Herstel ry (hef kansellasie op)' : 'Kanselleer ry'}">&#8856;</button></td>`
+            : '';
         const copyButton = `<td class="col-copy"><button type="button" class="row-copy-btn" onclick="duplicateRow(${r.id})" title="Kopieer ry">⧉</button></td>`;
         const deleteButton = `<td class="col-del"><button type="button" class="row-del-btn" onclick="deleteRow(${r.id})" title="Verwyder ry">&#10005;</button></td>`;
 
-        return `<tr data-id="${r.id}">
+        return `<tr data-id="${r.id}"${!isKwotasie && cancelled ? ' class="row-cancelled"' : ''}>
             ${checkboxCell}
             <td class="col-nr">${index + 1}</td>
             <td><input type="date" value="${escapeAttr(r.datum)}" onchange="updateField(${r.id},'datum',this.value)"></td>
@@ -1512,6 +1735,7 @@
             ${finaliseerCell}
             ${paidCell}
             ${faktuurCell}
+            ${cancelButton}
             ${copyButton}
             ${deleteButton}
         </tr>`;
@@ -1556,7 +1780,7 @@
             ).join('');
         }
         const years   = [...new Set(historyRows.map(r=>String((r.datum||'').slice(0,4))).filter(Boolean))].sort((a,b)=>b-a);
-        const buses   = [...new Set(historyRows.map(r=>r.bus||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
+        const seaters = [...new Set(historyRows.map(r=>String(r.seater||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af',{numeric:true}));
         const clientFilterText = (historyFilters.client || '').trim().toLowerCase();
         const clientRows = clientFilterText
             ? historyRows.filter(r => (r.klientID || '').toLowerCase().includes(clientFilterText))
@@ -1567,7 +1791,7 @@
         const tipes   = [...new Set(historyRows.map(r => normalizeTripType(r.tipeTrip)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
 
         buildSel('historyYearFilter',       years,   'Alle Jare',         historyFilters.year);
-        buildSel('historyBusFilter',        buses,   'Alle Busse',        historyFilters.bus);
+        buildSel('historySeaterFilter',     seaters, 'Alle Seaters',      historyFilters.seater);
         buildSel('historyDestinationFilter',dests,   'Alle Bestemmings',  historyFilters.destination);
         buildSel('historyTipeFilter',       tipes,   'Alle Tipes',        historyFilters.tipe);
         buildSel('historyStreekFilter',     streke,  'Alle Streke',       historyFilters.streek);
@@ -1577,12 +1801,12 @@
                 const normalizedTripType = normalizeTripType(r.tipeTrip);
                 const yearMatch   = !historyFilters.year        || String((r.datum||'').slice(0,4)) === historyFilters.year;
                 const clientMatch = !clientFilterText            || (r.klientID||'').toLowerCase().includes(clientFilterText);
-                const busMatch    = !historyFilters.bus         || (r.bus||'')        === historyFilters.bus;
+                const seaterMatch = !historyFilters.seater      || String(r.seater||'').trim() === historyFilters.seater;
                 const destMatch   = historyFilters.destination.length === 0 || historyFilters.destination.includes(r.bestemming || '');
                 const streekMatch = !historyFilters.streek      || (r.streek||'')     === historyFilters.streek;
                 const tipeMatch   = !historyFilters.tipe        || normalizedTripType === normalizeTripType(historyFilters.tipe);
                 const aanvaarMatch= historyFilters.aanvaar === '' || historyFilters.aanvaar == null || String(r.aanvaar) === String(historyFilters.aanvaar);
-                return yearMatch && clientMatch && busMatch && destMatch && streekMatch && tipeMatch && aanvaarMatch;
+                return yearMatch && clientMatch && seaterMatch && destMatch && streekMatch && tipeMatch && aanvaarMatch;
             })
             .sort((a, b) => {
                 const dateDiff = (b.datum || '').localeCompare(a.datum || '');
@@ -1591,7 +1815,7 @@
 
         const tbody = document.getElementById('historyTableBody');
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9"><div class="history-empty">Geen kwotasies vir die huidige filters nie.</div></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10"><div class="history-empty">Geen kwotasies vir die huidige filters nie.</div></td></tr>';
         } else {
             tbody.innerHTML = filtered.map(r => renderHistoryRow(r)).join('');
         }
@@ -1608,14 +1832,15 @@
         const accepted = String(r.aanvaar || '') === '1' || r.aanvaar === true || r.aanvaar === 1;
         return `<tr class="${highlightClass}" data-id="${r.id}">
             <td>${escapeHtml(r.datum || '')}</td>
-            <td>${escapeHtml(r.bus || '')}</td>
+            <td>${escapeHtml(r.seater || '')}</td>
             <td>${escapeHtml(r.klientID || '')}</td>
             <td>${escapeHtml(r.bestemming || '')}</td>
             <td class="col-accept">${accepted ? '✓' : ''}</td>
             <td>${escapeHtml(r.tipeTrip || '')}</td>
             <td>${escapeHtml(r.streek || '')}</td>
             <td><button type="button" class="history-price-link" onclick="highlightQuoteRow(${r.id})">${escapeHtml(priceStr)}</button></td>
-            <td>${escapeHtml(r.bestuurder || '')}</td>
+            <td>${escapeHtml((r.dateCreated || '').slice(0, 10))}</td>
+            <td>${escapeHtml(r.opmerkings || '')}</td>
         </tr>`;
     }
 
@@ -1681,6 +1906,27 @@
         }
     }
 
+    async function toggleCancel(id, btn) {
+        const entry = currentRows.find(r => Number(r.id) === Number(id));
+        if (!entry) return;
+        const next = isPaidValue(entry.gekanselleer) ? 0 : 1;
+        entry.gekanselleer = next;
+        const tr = btn.closest('tr');
+        const apply = on => {
+            if (tr) tr.classList.toggle('row-cancelled', on);
+            btn.classList.toggle('active', on);
+            btn.title = on ? 'Herstel ry (hef kansellasie op)' : 'Kanselleer ry';
+        };
+        apply(!!next);
+        try {
+            await apiUpdateField(id, 'gekanselleer', next);
+        } catch (e) {
+            entry.gekanselleer = next ? 0 : 1;   // roll back on failure
+            apply(!next);
+            setStatus('Kon nie kansellasie stoor nie: ' + e.message);
+        }
+    }
+
     async function toggleTrailer(id, checked) {
         const entry = currentRows.find(r => Number(r.id) === Number(id));
         if (entry) entry.trailer = checked ? 1 : 0;
@@ -1732,6 +1978,7 @@
         delete payload.tripGroupId;
         delete payload.dateCreated;
         delete payload.finaliseerDatum;
+        payload.gekanselleer = 0;   // a copy of a cancelled entry starts un-cancelled
 
         try {
             const created = await apiCreateEntry(payload, currentType);
@@ -1796,6 +2043,31 @@
     }
     function escapeAttr(s) { return escapeHtml(s); }
 
+    // Notes box next to Print/Eksporteer. Saved in this browser per
+    // month (or per day when a day is selected) so the note survives
+    // reloads and follows the period being viewed. It is printed under
+    // the table; it is NOT part of the Excel export (practice.py reads
+    // that sheet by position).
+    function dagboekNotesKey() {
+        const day = currentDayFilter ? String(currentDayFilter).padStart(2, '0') : 'all';
+        return `dagboekNotes:${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}-${day}`;
+    }
+    function loadDagboekNotes() {
+        const el = document.getElementById('dagboekNotes');
+        if (!el) return;
+        let value = '';
+        try { value = localStorage.getItem(dagboekNotesKey()) || ''; } catch (e) { /* storage unavailable */ }
+        if (el.value !== value) el.value = value;
+    }
+    function saveDagboekNotes() {
+        const el = document.getElementById('dagboekNotes');
+        if (!el) return;
+        try {
+            if (el.value.trim()) localStorage.setItem(dagboekNotesKey(), el.value);
+            else localStorage.removeItem(dagboekNotesKey());
+        } catch (e) { /* storage unavailable */ }
+    }
+
     function printDagboek() {
         const EXCLUDED = new Set([
             'trailer', 'opmerkings', 'finaliseer datum', 'datum'
@@ -1807,7 +2079,7 @@
         const allHeaders = [...sourceTable.querySelectorAll('thead th')];
         const keepIdx = allHeaders.reduce((acc, th, i) => {
             const text = (th.textContent || '').trim().toLowerCase();
-            if (!th.classList.contains('col-copy') && !th.classList.contains('col-del') && !EXCLUDED.has(text)) acc.push(i);
+            if (!th.classList.contains('col-copy') && !th.classList.contains('col-cancel') && !th.classList.contains('col-del') && !EXCLUDED.has(text)) acc.push(i);
             return acc;
         }, []);
 
@@ -1827,7 +2099,7 @@
                     : td.textContent.trim();
                 return `<td>${escapeHtml(text)}</td>`;
             }).join('');
-            return `<tr>${rowCells}</tr>`;
+            return `<tr${tr.classList.contains('row-cancelled') ? ' class="cx"' : ''}>${rowCells}</tr>`;
         }).join('');
 
         if (!printRows) { alert('Geen rye om te print nie.'); return; }
@@ -1858,6 +2130,8 @@
             : entryDates.length === 1 ? fmtDate(entryDates[0])
             : fmtDate(entryDates[0]) + ' \u2013 ' + fmtDate(entryDates[entryDates.length - 1]);
 
+        const notesText = (document.getElementById('dagboekNotes')?.value || '').trim();
+
         const html = '<!DOCTYPE html><html><head>'
             + '<meta charset="UTF-8">'
             + '<title>Dagboek \u2014 ' + periodLabel + '</title>'
@@ -1873,6 +2147,7 @@
             + 'thead th { background:#1f3864; color:#fff; font-size:8pt; font-weight:700;'
             + '  letter-spacing:.06em; text-transform:uppercase;'
             + '  padding:5px 6px; text-align:left; border:1px solid #14285a; }'
+            + 'tbody tr.cx td { text-decoration:line-through; text-decoration-thickness:2px; text-decoration-color:#c62828; }'
             + 'tbody tr:nth-child(even) { background:#eef3fa; }'
             + 'tbody tr:nth-child(odd)  { background:#ffffff; }'
             + 'tbody td { font-size:8.5pt; padding:4px 6px;'
@@ -1893,6 +2168,10 @@
             + '<thead><tr>' + printHeaders + '</tr></thead>'
             + '<tbody>' + printRows + '</tbody>'
             + '</table>'
+            + (notesText
+                ? '<div style="margin-top:12px;padding:8px 10px;border:1px solid #bfbfbf;font-size:9pt;white-space:pre-wrap">'
+                  + '<strong>Notas:</strong> ' + escapeHtml(notesText) + '</div>'
+                : '')
             + '<div class="pf">'
             + '  <span>Robbert Busdiens \u2014 Dagboek</span>'
             + '  <span>' + periodLabel + '</span>'
@@ -1963,6 +2242,8 @@
         const printBtn  = document.getElementById('printBtn');
         if (exportBtn) exportBtn.style.display = show;
         if (printBtn)  printBtn.style.display  = show;
+        const notesEl = document.getElementById('dagboekNotes');
+        if (notesEl) { notesEl.style.display = show; if (currentType === 'dagboek') loadDagboekNotes(); }
         if (currentType !== 'dagboek') {
             const group   = document.getElementById('unavailableDriverGroup');
             const display = document.getElementById('unavailableDriverDisplay');

@@ -682,15 +682,22 @@ def ensure_kwotasie_table(conn):
             datumTerug TEXT,
             tripGroupId INTEGER,
             trailer INTEGER NOT NULL DEFAULT 0,
-            faktuur TEXT
+            faktuur TEXT,
+            gekanselleer INTEGER NOT NULL DEFAULT 0
         )
     """)
     # Existing databases created before these columns existed won't have them
     # yet — add whichever are missing (safe to call repeatedly).
     cols = [c["name"] for c in conn.execute('PRAGMA table_info("Kwotasie")').fetchall()]
-    for new_col in ("betaal", "finaliseerDatum", "seater", "dateCreated", "tipeTrip", "datumTerug", "tripGroupId", "trailer", "faktuur"):
+    # Flag columns must be INTEGER (not TEXT) so 0/1 round-trip as numbers.
+    col_defs = {
+        "betaal": "INTEGER NOT NULL DEFAULT 0",
+        "trailer": "INTEGER NOT NULL DEFAULT 0",
+        "gekanselleer": "INTEGER NOT NULL DEFAULT 0",
+    }
+    for new_col in ("betaal", "finaliseerDatum", "seater", "dateCreated", "tipeTrip", "datumTerug", "tripGroupId", "trailer", "faktuur", "gekanselleer"):
         if new_col not in cols:
-            conn.execute(f'ALTER TABLE Kwotasie ADD COLUMN {new_col} TEXT')
+            conn.execute(f'ALTER TABLE Kwotasie ADD COLUMN {new_col} {col_defs.get(new_col, "TEXT")}')
 
 
 def ensure_bestemming_streek_table(conn):
@@ -722,6 +729,79 @@ def _resolve_streek(conn, bestemming: str) -> str:
     return ", ".join(streke)
 
 
+# ── Holiday markers for the PERIODE calendar ─────────────────────────────
+# One row per marked day. tipe is "publiek" (public holiday) or "skool"
+# (school holiday). Rows stay until the day is explicitly un-marked.
+_HOLIDAY_TYPES = {"publiek", "skool"}
+_HOLIDAY_MAX_DAYS = 400
+
+
+def ensure_vakansiedae_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS Vakansiedae (
+            datum TEXT PRIMARY KEY,
+            tipe  TEXT NOT NULL
+        )
+    """)
+
+
+def _holiday_days(start_str, end_str):
+    """Inclusive list of ISO dates, or None when the range is invalid."""
+    try:
+        start = date.fromisoformat(str(start_str)[:10])
+        end = date.fromisoformat(str(end_str)[:10])
+    except (TypeError, ValueError):
+        return None
+    if end < start or (end - start).days + 1 > _HOLIDAY_MAX_DAYS:
+        return None
+    return [(start + timedelta(days=i)).isoformat() for i in range((end - start).days + 1)]
+
+
+@app.get("/dagboek/holidays")
+def dagboek_list_holidays():
+    conn = get_db()
+    ensure_vakansiedae_table(conn)
+    rows = conn.execute("SELECT datum, tipe FROM Vakansiedae ORDER BY datum").fetchall()
+    conn.close()
+    return {r["datum"]: r["tipe"] for r in rows}
+
+
+@app.post("/dagboek/holidays")
+async def dagboek_set_holidays(request: Request):
+    """Mark every day in [start, end] as the given holiday type (overwrites
+    any type already on those days)."""
+    body = await request.json()
+    tipe = str(body.get("tipe") or "").strip().lower()
+    days = _holiday_days(body.get("start"), body.get("end"))
+    if tipe not in _HOLIDAY_TYPES or days is None:
+        return JSONResponse(content={"error": "Ongeldige datum-reeks of tipe"}, status_code=400)
+    conn = get_db()
+    ensure_vakansiedae_table(conn)
+    conn.executemany(
+        "INSERT INTO Vakansiedae (datum, tipe) VALUES (?, ?) "
+        "ON CONFLICT(datum) DO UPDATE SET tipe = excluded.tipe",
+        [(d, tipe) for d in days],
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success", "days": len(days)}
+
+
+@app.post("/dagboek/holidays/clear")
+async def dagboek_clear_holidays(request: Request):
+    """Un-mark every day in [start, end]."""
+    body = await request.json()
+    days = _holiday_days(body.get("start"), body.get("end"))
+    if days is None:
+        return JSONResponse(content={"error": "Ongeldige datum-reeks"}, status_code=400)
+    conn = get_db()
+    ensure_vakansiedae_table(conn)
+    conn.executemany("DELETE FROM Vakansiedae WHERE datum = ?", [(d,) for d in days])
+    conn.commit()
+    conn.close()
+    return {"status": "success", "days": len(days)}
+
+
 @app.get("/dagboek/history")
 def dagboek_history_entries():
     conn = get_db()
@@ -730,7 +810,7 @@ def dagboek_history_entries():
     rows = conn.execute("""
         SELECT id, datum, bus, klient AS klientID, bestemming, tydOplaai, tydTerug,
                bedrag, bestuurder, opmerkings, finaliseerDatum, seater, dateCreated, tipeTrip,
-               datumTerug, tripGroupId, aanvaar, betaal, trailer, faktuur
+               datumTerug, tripGroupId, aanvaar, betaal, trailer, faktuur, gekanselleer
         FROM Kwotasie
         ORDER BY datum DESC, id DESC
     """).fetchall()
@@ -752,7 +832,7 @@ def dagboek_list_entries(year: int, month: int, type: str):
     rows = conn.execute("""
         SELECT id, datum, bus, klient AS klientID, bestemming, tydOplaai, tydTerug,
                bedrag, bestuurder, opmerkings, finaliseerDatum, seater, dateCreated, tipeTrip,
-               datumTerug, tripGroupId, aanvaar, betaal, trailer, faktuur
+               datumTerug, tripGroupId, aanvaar, betaal, trailer, faktuur, gekanselleer
         FROM Kwotasie
         WHERE aanvaar = ? AND substr(datum, 1, 7) = ?
         ORDER BY datum, id
@@ -826,6 +906,7 @@ _DAGBOEK_FIELDS = {
     "betaal": "betaal",
     "trailer": "trailer",
     "faktuur": "faktuur",
+    "gekanselleer": "gekanselleer",
 }
 
 
@@ -841,7 +922,7 @@ async def dagboek_update_entry(trip_id: int, request: Request):
         value = _parse_float(value)
     elif field == "tipeTrip":
         value = _canonical_trip_type(value)
-    elif field in ("betaal", "trailer"):
+    elif field in ("betaal", "trailer", "gekanselleer"):
         value = 1 if str(value).strip().lower() in {"1", "true", "yes", "checked", "on"} else 0
     conn = get_db()
     ensure_kwotasie_table(conn)
@@ -932,13 +1013,18 @@ def dagboek_accept_entry(trip_id: int):
     # Toer-Oorslaap) become their own cloned Dagboek rows. Only the first day
     # keeps the quoted amount — the rest are logging the bus being away, not
     # additional billed amounts, so they don't inflate the monthly total.
+    final_day = dates[-1]
     for d in dates[1:]:
-        conn.execute("""
+        # Only the final return day keeps the actual tydTerug time.
+        # Every intermediate day gets NULL so the frontend can show
+        # the return date label instead of a time input.
+        tyd_terug_col = "tydTerug" if d == final_day else "NULL"
+        conn.execute(f"""
             INSERT INTO Kwotasie (datum, bus, klient, bestemming, tydOplaai, tydTerug,
                                    bedrag, bestuurder, opmerkings, aanvaar,
                                    seater, tipeTrip, dateCreated, finaliseerDatum,
                                    datumTerug, tripGroupId, trailer, faktuur)
-            SELECT ?, bus, klient, bestemming, tydOplaai, tydTerug,
+            SELECT ?, bus, klient, bestemming, tydOplaai, {tyd_terug_col},
                    NULL, bestuurder, opmerkings, 1,
                    seater, tipeTrip, dateCreated, finaliseerDatum,
                    datumTerug, ?, trailer, faktuur
@@ -1864,6 +1950,9 @@ def dagboek_export(year: int, month: int, day: int = 0):
             return False
         return today_iso < datum_terug
 
+    def _is_truthy_flag(value):
+        return value is True or str(value).strip().lower() in {"1", "true", "yes", "checked", "on"}
+
     for r in rows:
         bus = (r.get("bus") or "").strip()
         r["_export_seater"] = ((r.get("seater") or "").replace("Seater", "").strip() or (seater_map.get(bus) or "").replace("Seater", "").strip())
@@ -1873,7 +1962,7 @@ def dagboek_export(year: int, month: int, day: int = 0):
             if is_pending_multi_day_return(r)
             else parse_time_value(r.get("tydTerug") or "")
         )
-        r["_export_trailer"] = "Yes" if r.get("trailer") else " "
+        r["_export_trailer"] = "Yes" if _is_truthy_flag(r.get("trailer")) else " "
 
     # ── Styles ────────────────────────────────────────────────────────────
 
@@ -1917,7 +2006,9 @@ def dagboek_export(year: int, month: int, day: int = 0):
         c.border    = BORDER
         return c
 
-    def data_cell(ws, row, col, value, bold=False, align="left", alt=False):
+    def data_cell(ws, row, col, value, bold=False, align="center", alt=False):
+        if isinstance(value, str):
+            value = value.upper()
         c           = ws.cell(row=row, column=col, value=value)
         c.font      = Font(name="Arial", size=20, bold=bold)
         c.alignment = Alignment(horizontal=align, vertical="center")
@@ -2000,7 +2091,11 @@ def dagboek_export(year: int, month: int, day: int = 0):
     ws.row_dimensions[3].height = 47.3
 
     # ── Row 4+: Data ──────────────────────────────────────────────────────
-    sorted_rows = sorted(rows, key=lambda r: (r.get("_export_pickup_time") or "", r.get("id") or 0))
+    sorted_rows = sorted(rows, key=lambda r: (
+        r.get("_export_pickup_time") is None,
+        r.get("_export_pickup_time") or dt_time.min,
+        r.get("id") or 0,
+    ))
 
     for i, r in enumerate(sorted_rows):
         rn  = 4 + i
@@ -2011,7 +2106,7 @@ def dagboek_export(year: int, month: int, day: int = 0):
         ws.row_dimensions[rn].height = 67.5
 
         data_cell(ws, rn,  1, i + 1,                      align="center", bold=True, alt=alt)
-        data_cell(ws, rn,  2, r.get("_export_pickup_time") or "",   align="center",            alt=alt)  # DEPOT (Pickup time in HHhMM format)
+        data_cell(ws, rn,  2, "",                        align="center",            alt=alt)  # DEPOT is completed manually
         data_cell(ws, rn,  3, r.get("bestuurder") or "",                             alt=alt)
         data_cell(ws, rn,  4, r.get("_export_seater") or "", align="center",            alt=alt)
         data_cell(ws, rn,  5, bus,                                                   alt=alt)
