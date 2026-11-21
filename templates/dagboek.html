@@ -451,8 +451,8 @@
         width: 310px;
     }
     th.col-opmerkings, td.col-opmerkings {
-        min-width: 160px;
-        width: 200px;
+        min-width: 320px;
+        width: 400px;
     }
     td.col-tyd-terug-pending { text-align: center; color: var(--muted); font-style: italic; white-space: nowrap; }
     th.col-copy, td.col-copy { text-align: center; width: 28px; }
@@ -552,20 +552,13 @@
     .footer .total-line strong { font-size: 15px; }
 
     .history-panel {
-        margin-top: 12px;
+        margin-top: 0;
         border: 1px solid var(--border);
         border-radius: 2px;
         background: var(--white);
         display: flex;
         flex-direction: column;
         min-height: 240px;
-    }
-    .kwotasie-separator {
-        display: none;
-        height: 3px;
-        background: var(--accent);
-        border-radius: 2px;
-        margin: 15px 0;
     }
     .history-controls {
         display: flex;
@@ -589,12 +582,11 @@
     }
     .history-control-clear { flex: 0 0 auto; min-width: 0; }
     .history-clear-btn {
-        padding: 6px 12px;
-        font-family: 'Barlow', sans-serif;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        white-space: nowrap;
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        padding: 0;
         background: var(--panel);
         color: var(--text);
         border: 1px solid var(--border);
@@ -602,6 +594,7 @@
         cursor: pointer;
     }
     .history-clear-btn:hover { background: #bcc2c8; }
+    .history-clear-btn svg { width: 18px; height: 18px; }
     .history-control input, .history-control select {
         width: 100%;
         padding: 6px 8px;
@@ -651,6 +644,21 @@
     }
     .history-table tbody tr:nth-child(even) td { background: var(--grid-alt); }
     .history-table tbody tr:hover td { background: #c5daf5; }
+    .history-opm-cell { padding: 2px 6px !important; }
+    .history-opm-input {
+        width: 100%;
+        min-width: 140px;
+        box-sizing: border-box;
+        padding: 4px 6px;
+        font-family: inherit;
+        font-size: inherit;
+        color: inherit;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 2px;
+    }
+    .history-opm-input:hover { border-color: var(--border); background: var(--white); }
+    .history-opm-input:focus { outline: none; border-color: var(--accent); background: var(--white); }
     .history-row-highlight td { background: #f6e8a8 !important; }
     .history-price-link {
         background: none;
@@ -724,10 +732,11 @@
         padding: 8px 10px;
         font-family: 'Barlow', sans-serif;
         font-size: 12px;
+        font-weight: 700;
         border: 1px solid var(--border, #c8cdd1);
         border-radius: 2px;
         background: #fff;
-        color: #1e2428;
+        color: #008000;
     }
 </style>
 </head>
@@ -742,6 +751,7 @@
             <div class="legend">Tipe</div>
             <button class="type-btn active" id="btnDagboek" onclick="selectView('dagboek')">Dagboek</button>
             <button class="type-btn" id="btnKwotasie" onclick="selectView('kwotasie')">Kwotasie</button>
+            <button class="type-btn" id="btnGeskiedenis" onclick="selectView('geskiedenis')">Geskiedenis</button>
         </div>
 
         <div class="group-box">
@@ -758,6 +768,18 @@
                     </div>
                     <div class="date-filter-grid" id="dateFilterGrid"></div>
                     <button type="button" class="date-filter-clear" onclick="clearDateFilter()">Alle dae</button>
+                    <button type="button" class="date-filter-clear" id="newDestToggleBtn" onclick="toggleNewDestPanel()">Nuwe Bestemming &#9662;</button>
+                    <div class="holiday-panel" id="newDestPanel" style="display:none">
+                        <label for="newDestName">Bestemming</label>
+                        <input type="text" id="newDestName" autocomplete="off" placeholder="bv. Warmbaths">
+                        <label for="newDestStreek">Streek</label>
+                        <input type="text" id="newDestStreek" list="streekOptionsList" autocomplete="off" placeholder="Kies of tik 'n streek">
+                        <datalist id="streekOptionsList"></datalist>
+                        <div class="holiday-actions">
+                            <button type="button" class="holiday-mark" onclick="saveNewDestination()">Stoor</button>
+                        </div>
+                        <div class="holiday-msg" id="newDestMsg"></div>
+                    </div>
                     <button type="button" class="date-filter-clear" id="holidayToggleBtn" onclick="toggleHolidayPanel()">Vakansiedae &#9662;</button>
                     <div class="holiday-legend">
                         <span><i style="background:#2f7de1"></i>Publiek</span>
@@ -799,7 +821,7 @@
             <div class="page-meta" id="pageMeta">—</div>
         </div>
 
-        <div class="toolbar">
+        <div class="toolbar" id="mainToolbar">
             <div class="toolbar-left">
                 <button class="btn-add" onclick="addRow()">+ Voeg Ry By</button>
                 <div id="unavailableDriverGroup" class="unavailable-group" style="display:none">
@@ -818,7 +840,7 @@
             <button class="btn-export" id="exportBtn" onclick="exportDagboek()" style="display:none">&#8659; Eksporteer</button>
         </div>
 
-        <div class="grid-wrapper">
+        <div class="grid-wrapper" id="gridWrapper">
             <datalist id="quoteKlientList"></datalist>
             <datalist id="quoteBestemmingList"></datalist>
             <datalist id="historyKlientOptions"></datalist>
@@ -830,8 +852,6 @@
             </table>
         </div>
 
-        <div id="kwotasieSeparator" class="kwotasie-separator" aria-hidden="true"></div>
-
         <div id="quoteHistoryPanel" class="history-panel" style="display:none;">
             <div class="history-controls">
                 <div class="history-control">
@@ -840,11 +860,11 @@
                 </div>
                 <div class="history-control">
                     <label for="historyClientFilter">Klient</label>
-                    <input type="text" id="historyClientFilter" list="historyKlientOptions" autocomplete="off" placeholder="Tik 'n deel van 'n klient naam...">
+                    <select id="historyClientFilter" multiple size="1" aria-label="Kies een of meer klients"></select>
                 </div>
                 <div class="history-control">
                     <label for="historySeaterFilter">Seater</label>
-                    <select id="historySeaterFilter"></select>
+                    <select id="historySeaterFilter" multiple size="1" aria-label="Kies een of meer seaters"></select>
                 </div>
                 <div class="history-control">
                     <label for="historyDestinationFilter">Bestemming</label>
@@ -860,11 +880,16 @@
                 </div>
                 <div class="history-control">
                     <label for="historyStreekFilter">Streek</label>
-                    <select id="historyStreekFilter"></select>
+                    <select id="historyStreekFilter" multiple size="1" aria-label="Kies een of meer streke"></select>
                 </div>
                 <div class="history-control history-control-clear">
                     <label>&nbsp;</label>
-                    <button type="button" class="history-clear-btn" onclick="clearHistoryFilters()">Maak filters skoon</button>
+                    <button type="button" class="history-clear-btn" onclick="clearHistoryFilters()" aria-label="Maak filters skoon" title="Maak filters skoon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3.5 5h17l-6.5 7v5l-4 2v-7z"></path>
+                            <path d="m16 16 5 5m0-5-5 5"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
             <div class="history-table-wrap">
@@ -893,7 +918,7 @@
 
         <div class="footer">
             <div class="status-msg" id="statusMsg"></div>
-            <div class="total-line">Totaal vir maand: <strong id="footerTotal">R 0.00</strong></div>
+            <div class="total-line" id="totalLine">Totaal vir maand: <strong id="footerTotal">R 0.00</strong></div>
         </div>
 
     </div>
@@ -983,6 +1008,8 @@
         const compact = text.toLowerCase().replace(/[_/]/g, ' ').replace(/-/g, ' ');
         const aliases = {
             'dag retoer': 'Dag-Retoer',
+            'dag eenrigting': 'Dag-EenRigting',
+            'dag een rigting': 'Dag-EenRigting',
             'toer retoer': 'Toer-Retoer',
             'toer oorslaap': 'Toer-Oorslaap'
         };
@@ -1045,7 +1072,7 @@
     let currentYear, currentMonthIdx;
     let currentRows = [];   // rows currently rendered, straight from Access
     let historyRows = [];
-    let historyFilters = { year: '', client: '', seater: '', destination: [], streek: '', tipe: '', aanvaar: '' };
+    let historyFilters = { year: '', client: [], seater: [], destination: [], streek: [], tipe: '', aanvaar: '' };
     let highlightedQuoteId = null;
     let unavailableDriversByDay = {};   // cache: dateKey -> [driverName, ...]
 
@@ -1208,6 +1235,7 @@
         unavailableDriversByDay = {};   // populated on demand from server
         await loadDropdownData();
         await loadHolidays();
+        await loadDestinations();
         initializeUnavailableDriverOptions();
         await loadQuoteHistory();
         await refreshTable();
@@ -1256,33 +1284,102 @@
         ['historyYearFilter','historyClientFilter','historySeaterFilter','historyDestinationFilter','historyTipeFilter','historyAanvaarFilter','historyStreekFilter']
             .forEach(id => document.getElementById(id).addEventListener('change', readHistoryFilters));
 
-        // The Klient filter is free text (like the Kwotasie table's own
-        // Klient box): filter as soon as Enter is pressed, rather than
-        // waiting for the field to lose focus.
-        document.getElementById('historyClientFilter').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                readHistoryFilters();
-                this.blur();
-            }
-        });
     }
 
     function clearHistoryFilters() {
-        historyFilters = { year: '', client: '', seater: '', destination: [], streek: '', tipe: '', aanvaar: '' };
-        document.getElementById('historyClientFilter').value = '';
+        historyFilters = { year: '', client: [], seater: [], destination: [], streek: [], tipe: '', aanvaar: '' };
         document.getElementById('historyAanvaarFilter').value = '';
         renderQuoteHistory();   // rebuilds every dropdown from the cleared state
     }
 
     function readHistoryFilters() {
         historyFilters.year        = document.getElementById('historyYearFilter').value;
-        historyFilters.client      = document.getElementById('historyClientFilter').value;
-        historyFilters.seater      = document.getElementById('historySeaterFilter').value;
+        historyFilters.client      = [...document.getElementById('historyClientFilter').selectedOptions].map(option => option.value);
+        historyFilters.seater      = [...document.getElementById('historySeaterFilter').selectedOptions].map(option => option.value);
         historyFilters.destination = [...document.getElementById('historyDestinationFilter').selectedOptions].map(option => option.value);
         historyFilters.tipe        = document.getElementById('historyTipeFilter').value;
         historyFilters.aanvaar     = document.getElementById('historyAanvaarFilter').value;
-        historyFilters.streek      = document.getElementById('historyStreekFilter').value;
+        historyFilters.streek      = [...document.getElementById('historyStreekFilter').selectedOptions].map(option => option.value);
+        renderQuoteHistory();
+    }
+
+    // ── Destinations + Streek (BestemmingStreek table) ──
+    let destinationList = [];   // [{ bestemmingNaam, streek }]
+
+    async function loadDestinations() {
+        try {
+            const r = await fetch('/bestemmings');
+            destinationList = r.ok ? await r.json() : [];
+        } catch (e) {
+            destinationList = [];
+        }
+        renderStreekOptions();
+    }
+
+    function renderStreekOptions() {
+        const list = document.getElementById('streekOptionsList');
+        if (!list) return;
+        const streke = [...new Set(destinationList.map(d => d.streek).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'af'));
+        list.innerHTML = streke.map(v => `<option value="${escapeAttr(v)}"></option>`).join('');
+    }
+
+    // Same rule as _resolve_streek on the server: split a comma-separated
+    // bestemming, look each name up (case-insensitive), join unique streke.
+    // Names are compared ignoring case and whitespace differences (double
+    // or non-breaking spaces), exactly like the server does.
+    function nameKey(name) {
+        return String(name || '').split(/\s+/).filter(Boolean).join(' ').toLowerCase();
+    }
+
+    function resolveStreek(bestemming) {
+        const names = String(bestemming || '').split(',').map(nameKey).filter(Boolean);
+        if (!names.length) return '';
+        const found = new Set();
+        destinationList.forEach(d => {
+            if (d.streek && names.includes(nameKey(d.bestemmingNaam))) found.add(d.streek.trim());
+        });
+        return [...found].sort().join(', ');
+    }
+
+    function toggleNewDestPanel() {
+        const panel = document.getElementById('newDestPanel');
+        const open = panel.style.display === 'none';
+        panel.style.display = open ? 'block' : 'none';
+        document.getElementById('newDestToggleBtn').innerHTML = open ? 'Nuwe Bestemming &#9652;' : 'Nuwe Bestemming &#9662;';
+    }
+
+    async function saveNewDestination() {
+        const msg = document.getElementById('newDestMsg');
+        const nameEl = document.getElementById('newDestName');
+        const streekEl = document.getElementById('newDestStreek');
+        const bestemmingNaam = nameEl.value.trim();
+        const streek = streekEl.value.trim();
+        if (!bestemmingNaam || !streek) { msg.textContent = 'Vul beide Bestemming en Streek in.'; return; }
+        try {
+            const r = await fetch('/bestemmings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bestemmingNaam, streek })
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || `Bediener fout ${r.status}`);
+            destinationList = destinationList.filter(d => nameKey(d.bestemmingNaam) !== nameKey(data.bestemmingNaam));
+            destinationList.push({ bestemmingNaam: data.bestemmingNaam, streek: data.streek });
+            renderStreekOptions();
+            refreshHistoryStreke();          // existing entries using this name now show its streek
+            renderSuggestionDatalists();     // new destination appears in the Bestemming dropdowns
+            nameEl.value = '';
+            streekEl.value = '';
+            msg.textContent = `"${data.bestemmingNaam}" gestoor (${data.streek}).`;
+        } catch (e) {
+            msg.textContent = e.message;
+        }
+    }
+
+    // Re-derive every history row's streek from the current destination list.
+    function refreshHistoryStreke() {
+        historyRows.forEach(r => { r.streek = resolveStreek(r.bestemming); });
         renderQuoteHistory();
     }
 
@@ -1450,14 +1547,26 @@
 
     function selectView(type) {
         currentType = type;
+        const isHistory = type === 'geskiedenis';
         document.getElementById('btnDagboek').classList.toggle('active', type === 'dagboek');
         document.getElementById('btnKwotasie').classList.toggle('active', type === 'kwotasie');
-        document.getElementById('pageTitle').textContent = type === 'dagboek' ? 'Dagboek' : 'Kwotasie';
-        const separator = document.getElementById('kwotasieSeparator');
-        if (separator) separator.style.display = type === 'kwotasie' ? 'block' : 'none';
+        document.getElementById('btnGeskiedenis').classList.toggle('active', isHistory);
+        document.getElementById('pageTitle').textContent =
+            { dagboek: 'Dagboek', kwotasie: 'Kwotasie', geskiedenis: 'Geskiedenis' }[type] || 'Dagboek';
+        // The history view has no entry grid, toolbar or monthly total.
+        document.getElementById('mainToolbar').style.display = isHistory ? 'none' : '';
+        document.getElementById('gridWrapper').style.display = isHistory ? 'none' : '';
+        document.getElementById('totalLine').style.display   = isHistory ? 'none' : '';
         renderUnavailableDriverSelector();
-        refreshTable();
         updateExportBtn();
+        if (isHistory) {
+            // Reload so trips added/removed/priced in the other views are included.
+            document.getElementById('pageMeta').textContent = '';
+            document.getElementById('loadStatus').textContent = '';
+            loadQuoteHistory();
+        } else {
+            refreshTable();
+        }
     }
 
     function busOptions(selected) {
@@ -1482,6 +1591,10 @@
     }
 
     async function refreshTable() {
+        if (currentType === 'geskiedenis') {   // history isn't tied to the selected month
+            renderQuoteHistory();
+            return;
+        }
         const loadStatus = document.getElementById('loadStatus');
         loadStatus.textContent = 'Laai vanaf databasis…';
         document.getElementById('pageMeta').textContent =
@@ -1499,6 +1612,7 @@
     }
 
     function renderTable() {
+        if (currentType === 'geskiedenis') return;
         const isKwotasie = currentType === 'kwotasie';
 
         // Build the header as a list so colCount can never drift out of sync
@@ -1694,7 +1808,12 @@
         const isMultiDayTrip = isMultiDayType
             && r.datumTerug
             && r.datum !== r.datumTerug;   // any day that is not the return day
-        const tydTerugCell = isMultiDayTrip
+        // Dag-EenRigting (one-way): no return time exists, so Tyd Terug is
+        // always the text "One-Way" and is not editable.
+        const isOneWay = normalizeTripType(r.tipeTrip) === 'Dag-EenRigting';
+        const tydTerugCell = isOneWay
+            ? `<td class="col-tyd-terug-pending">One-Way</td>`
+            : isMultiDayTrip
             ? `<td class="col-tyd-terug-pending" title="Kom terug op ${escapeAttr(formatDateNoYear(r.datumTerug))}">${escapeHtml(formatDateNoYear(r.datumTerug))}</td>`
             : `<td><input type="time" step="60" value="${escapeAttr(normalizeTimeValue(r.tydTerug))}" onchange="updateField(${r.id},'tydTerug',normalizeTimeValue(this.value))"></td>`;
 
@@ -1745,7 +1864,7 @@
     function renderSuggestionDatalists() {
         const values = [...historyRows, ...currentRows];
         const klientValues = [...new Set(values.map(r => r.klientID).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'af'));
-        const bestemmingValues = [...new Set(values.map(r => r.bestemming).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'af'));
+        const bestemmingValues = [...new Set([...destinationList.map(d => d.bestemmingNaam), ...values.map(r => r.bestemming)].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'af'));
         const busValues = [...new Set([...values.map(r => r.bus).filter(Boolean), ...busList].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'af'));
 
         const klientList = document.getElementById('quoteKlientList');
@@ -1761,9 +1880,16 @@
         if (historyBestemmingList) historyBestemmingList.innerHTML = bestemmingValues.map(v => `<option value="${escapeAttr(v)}"></option>`).join('');
     }
 
+    // History only lists trips that actually have a Bedrag (a number). Rows
+    // are kept in historyRows so they appear as soon as a price is entered.
+    function hasBedrag(r) {
+        return r.bedrag !== null && r.bedrag !== undefined
+            && String(r.bedrag).trim() !== '' && Number.isFinite(parseFloat(r.bedrag));
+    }
+
     function renderQuoteHistory() {
         const panel = document.getElementById('quoteHistoryPanel');
-        if (currentType !== 'kwotasie') {
+        if (currentType !== 'geskiedenis') {
             panel.style.display = 'none';
             return;
         }
@@ -1779,31 +1905,36 @@
                 `<option value="${escapeAttr(v)}"${selectedValues.includes(v) ? ' selected' : ''}>${escapeHtml(v)}</option>`
             ).join('');
         }
-        const years   = [...new Set(historyRows.map(r=>String((r.datum||'').slice(0,4))).filter(Boolean))].sort((a,b)=>b-a);
-        const seaters = [...new Set(historyRows.map(r=>String(r.seater||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af',{numeric:true}));
-        const clientFilterText = (historyFilters.client || '').trim().toLowerCase();
-        const clientRows = clientFilterText
-            ? historyRows.filter(r => (r.klientID || '').toLowerCase().includes(clientFilterText))
-            : historyRows;
+        const pricedRows = historyRows.filter(hasBedrag);
+        const years   = [...new Set(pricedRows.map(r=>String((r.datum||'').slice(0,4))).filter(Boolean))].sort((a,b)=>b-a);
+        const seaters = [...new Set(pricedRows.map(r=>String(r.seater||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af',{numeric:true}));
+        const clients = [...new Set(pricedRows.map(r => String(r.klientID || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'af'));
+        historyFilters.client = historyFilters.client.filter(client => clients.includes(client));
+        const clientRows = historyFilters.client.length
+            ? pricedRows.filter(r => historyFilters.client.includes(String(r.klientID || '').trim()))
+            : pricedRows;
         const dests   = [...new Set(clientRows.map(r=>r.bestemming||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
         historyFilters.destination = historyFilters.destination.filter(destination => dests.includes(destination));
-        const streke  = [...new Set(historyRows.map(r=>r.streek||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
-        const tipes   = [...new Set(historyRows.map(r => normalizeTripType(r.tipeTrip)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
+        historyFilters.seater = historyFilters.seater.filter(seater => seaters.includes(seater));
+        const streke  = [...new Set(pricedRows.map(r=>r.streek||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
+        historyFilters.streek = historyFilters.streek.filter(streek => streke.includes(streek));
+        const tipes   = [...new Set(pricedRows.map(r => normalizeTripType(r.tipeTrip)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'af'));
 
         buildSel('historyYearFilter',       years,   'Alle Jare',         historyFilters.year);
+        buildSel('historyClientFilter',     clients, 'Alle Klients',      historyFilters.client);
         buildSel('historySeaterFilter',     seaters, 'Alle Seaters',      historyFilters.seater);
         buildSel('historyDestinationFilter',dests,   'Alle Bestemmings',  historyFilters.destination);
         buildSel('historyTipeFilter',       tipes,   'Alle Tipes',        historyFilters.tipe);
         buildSel('historyStreekFilter',     streke,  'Alle Streke',       historyFilters.streek);
 
-        const filtered = historyRows
+        const filtered = pricedRows
             .filter(r => {
                 const normalizedTripType = normalizeTripType(r.tipeTrip);
                 const yearMatch   = !historyFilters.year        || String((r.datum||'').slice(0,4)) === historyFilters.year;
-                const clientMatch = !clientFilterText            || (r.klientID||'').toLowerCase().includes(clientFilterText);
-                const seaterMatch = !historyFilters.seater      || String(r.seater||'').trim() === historyFilters.seater;
+                const clientMatch = historyFilters.client.length === 0 || historyFilters.client.includes(String(r.klientID || '').trim());
+                const seaterMatch = historyFilters.seater.length === 0 || historyFilters.seater.includes(String(r.seater||'').trim());
                 const destMatch   = historyFilters.destination.length === 0 || historyFilters.destination.includes(r.bestemming || '');
-                const streekMatch = !historyFilters.streek      || (r.streek||'')     === historyFilters.streek;
+                const streekMatch = historyFilters.streek.length === 0 || historyFilters.streek.includes(r.streek || '');
                 const tipeMatch   = !historyFilters.tipe        || normalizedTripType === normalizeTripType(historyFilters.tipe);
                 const aanvaarMatch= historyFilters.aanvaar === '' || historyFilters.aanvaar == null || String(r.aanvaar) === String(historyFilters.aanvaar);
                 return yearMatch && clientMatch && seaterMatch && destMatch && streekMatch && tipeMatch && aanvaarMatch;
@@ -1837,11 +1968,73 @@
             <td>${escapeHtml(r.bestemming || '')}</td>
             <td class="col-accept">${accepted ? '✓' : ''}</td>
             <td>${escapeHtml(r.tipeTrip || '')}</td>
-            <td>${escapeHtml(r.streek || '')}</td>
+            ${(r.bestemming || '').trim() && !(r.bestemming || '').includes(',')
+                ? `<td class="history-opm-cell"><input type="text" class="history-opm-input" value="${escapeAttr(r.streek || '')}" placeholder="—"
+                    title="Verander die streek van &quot;${escapeAttr((r.bestemming || '').trim())}&quot; (geld vir alle ritte met hierdie bestemming)"
+                    onblur="saveHistoryStreek(${r.id}, this)"
+                    onkeydown="if (event.key === 'Enter') this.blur(); else if (event.key === 'Escape') { this.value = this.defaultValue; this.blur(); }"></td>`
+                : `<td title="${(r.bestemming || '').includes(',') ? 'Meer as een bestemming: verander die streek per bestemming' : ''}">${escapeHtml(r.streek || '')}</td>`}
             <td><button type="button" class="history-price-link" onclick="highlightQuoteRow(${r.id})">${escapeHtml(priceStr)}</button></td>
             <td>${escapeHtml((r.dateCreated || '').slice(0, 10))}</td>
-            <td>${escapeHtml(r.opmerkings || '')}</td>
+            <td class="history-opm-cell"><input type="text" class="history-opm-input" value="${escapeAttr(r.opmerkings || '')}" placeholder="—"
+                onblur="saveHistoryOpmerkings(${r.id}, this)"
+                onkeydown="if (event.key === 'Enter') this.blur(); else if (event.key === 'Escape') { this.value = this.defaultValue; this.blur(); }"></td>
         </tr>`;
+    }
+
+    // Inline edit of Opmerkings from the history table; saved straight to the
+    // database and mirrored into the table above if that trip is showing there.
+    async function saveHistoryOpmerkings(id, input) {
+        const value = input.value;
+        const entry = historyRows.find(r => Number(r.id) === Number(id));
+        if (!entry || value === (entry.opmerkings || '')) return;
+        const previous = entry.opmerkings || '';
+        entry.opmerkings = value;
+        input.defaultValue = value;
+        const gridEntry = currentRows.find(r => Number(r.id) === Number(id));
+        const gridInput = document.querySelector(`.grid-wrapper tr[data-id="${id}"] td.col-opmerkings input`);
+        if (gridEntry) gridEntry.opmerkings = value;
+        if (gridInput) gridInput.value = value;
+        try {
+            await apiUpdateField(id, 'opmerkings', value);
+        } catch (e) {
+            entry.opmerkings = previous;
+            input.value = previous;
+            input.defaultValue = previous;
+            if (gridEntry) gridEntry.opmerkings = previous;
+            if (gridInput) gridInput.value = previous;
+            setStatus('Kon nie opmerking stoor nie: ' + e.message);
+        }
+    }
+
+    // A trip's streek belongs to its destination, so editing it here changes
+    // the streek of that destination (BestemmingStreek) and therefore every
+    // trip that uses it. Trips with several destinations stay read-only.
+    async function saveHistoryStreek(id, input) {
+        const entry = historyRows.find(r => Number(r.id) === Number(id));
+        if (!entry) return;
+        const naam = (entry.bestemming || '').trim();
+        const value = input.value.trim();
+        if (!naam || value === (entry.streek || '')) return;
+        try {
+            const r = await fetch('/bestemmings/streek', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bestemmingNaam: naam, streek: value })
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(data.error || `Bediener fout ${r.status}`);
+            destinationList = destinationList.filter(d => nameKey(d.bestemmingNaam) !== nameKey(data.bestemmingNaam));
+            destinationList.push({ bestemmingNaam: data.bestemmingNaam, streek: data.streek });
+            renderStreekOptions();
+            const affected = historyRows.filter(h => (h.bestemming || '').split(',')
+                .some(n => nameKey(n) === nameKey(data.bestemmingNaam))).length;
+            refreshHistoryStreke();
+            setStatus(`Streek van "${data.bestemmingNaam}" gestoor (${affected} rit${affected === 1 ? '' : 'te'} opgedateer)`);
+        } catch (e) {
+            input.value = entry.streek || '';
+            setStatus('Kon nie streek stoor nie: ' + e.message);
+        }
     }
 
     function renderHistorySummary(rows) {
@@ -1883,6 +2076,11 @@
                 value = normalizeTimeValue(value);
             }
             entry[field] = value;
+            if (field === 'tipeTrip') {
+                // Mirrors the server: one-way trips store "One-Way" as Tyd Terug.
+                if (normalizeTripType(value) === 'Dag-EenRigting') entry.tydTerug = 'One-Way';
+                else if (entry.tydTerug === 'One-Way') entry.tydTerug = '';
+            }
             if (field === 'bedrag' || field === 'tipeTrip') renderTable();
             syncHistoryEntry(id, field, value);
         }
@@ -1941,6 +2139,7 @@
         const entry = historyRows.find(r => Number(r.id) === Number(id));
         if (entry) {
             entry[field] = value;
+            if (field === 'bestemming') entry.streek = resolveStreek(value);
         }
         renderQuoteHistory();
     }
@@ -2169,7 +2368,7 @@
             + '<tbody>' + printRows + '</tbody>'
             + '</table>'
             + (notesText
-                ? '<div style="margin-top:12px;padding:8px 10px;border:1px solid #bfbfbf;font-size:9pt;white-space:pre-wrap">'
+                ? '<div style="margin-top:12px;padding:8px 10px;border:1px solid #bfbfbf;font-size:9pt;font-weight:700;color:#008000;white-space:pre-wrap">'
                   + '<strong>Notas:</strong> ' + escapeHtml(notesText) + '</div>'
                 : '')
             + '<div class="pf">'

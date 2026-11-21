@@ -122,7 +122,12 @@ def get_seaters():
 # Fixed short list rather than a DB lookup table — matches the handful of
 # trip types the client actually quotes against. Add more here if the
 # client starts using additional trip types.
-TRIP_TYPES = ["Dag-Retoer", "Toer-Retoer", "Toer-Oorslaap"]
+TRIP_TYPES = ["Dag-Retoer", "Dag-EenRigting", "Toer-Retoer", "Toer-Oorslaap"]
+
+# Dag-EenRigting behaves exactly like a Dag-Retoer (single same-day trip),
+# except there is no return time: Tyd Terug holds this text instead.
+ONE_WAY_TYPE = "Dag-EenRigting"
+ONE_WAY_LABEL = "One-Way"
 
 
 @app.get("/trip-types")
@@ -714,19 +719,117 @@ def ensure_bestemming_streek_table(conn):
     """)
 
 
-def _resolve_streek(conn, bestemming: str) -> str:
+def _name_key(name) -> str:
+    """Destination names are compared ignoring case and any difference in
+    whitespace (double spaces, non-breaking spaces, stray edges), because
+    names typed on trips and names stored in BestemmingStreek (some imported
+    from Access) don't always agree on that."""
+    return " ".join(str(name or "").split()).casefold()
+
+
+def _streek_map(conn) -> dict:
+    """{normalised destination name: set of streke} for the whole table."""
+    out = {}
+    for r in conn.execute("SELECT bestemmingNaam, streek FROM BestemmingStreek").fetchall():
+        if (r["streek"] or "").strip():
+            out.setdefault(_name_key(r["bestemmingNaam"]), set()).add(r["streek"].strip())
+    return out
+
+
+def _resolve_streek(conn, bestemming: str, streek_map: dict = None) -> str:
     if not bestemming:
         return ""
-    names = [n.strip() for n in bestemming.split(",") if n.strip()]
+    names = [n for n in bestemming.split(",") if n.strip()]
     if not names:
         return ""
-    placeholders = ",".join("?" for _ in names)
+    if streek_map is None:
+        streek_map = _streek_map(conn)
+    streke = set()
+    for n in names:
+        streke |= streek_map.get(_name_key(n), set())
+    return ", ".join(sorted(streke))
+
+
+def _find_bestemming_rows(conn, naam: str):
+    """All BestemmingStreek rows whose name matches `naam` (normalised)."""
+    key = _name_key(naam)
+    return [r for r in conn.execute("SELECT bestemmingNaam, streek FROM BestemmingStreek").fetchall()
+            if _name_key(r["bestemmingNaam"]) == key]
+
+
+# ── Destinations (Bestemming) and their Streek ───────────────────────────
+# BestemmingStreek is the master list of destinations. A trip's streek is
+# never stored on the trip itself: it's looked up here at read time (see
+# _resolve_streek), so adding a destination here is all that's needed for its
+# streek to show up in the history table for every entry that uses it.
+
+@app.get("/bestemmings")
+def list_bestemmings():
+    conn = get_db()
+    ensure_bestemming_streek_table(conn)
     rows = conn.execute(
-        f"SELECT streek FROM BestemmingStreek WHERE bestemmingNaam IN ({placeholders})",
-        names,
+        "SELECT bestemmingNaam, streek FROM BestemmingStreek ORDER BY bestemmingNaam COLLATE NOCASE"
     ).fetchall()
-    streke = sorted({r["streek"] for r in rows if r["streek"]})
-    return ", ".join(streke)
+    conn.close()
+    return [{"bestemmingNaam": r["bestemmingNaam"], "streek": r["streek"] or ""} for r in rows]
+
+
+@app.post("/bestemmings")
+async def add_bestemming(request: Request):
+    body = await request.json()
+    naam = " ".join(str(body.get("bestemmingNaam") or "").split())
+    streek = " ".join(str(body.get("streek") or "").split())
+    if not naam or not streek:
+        return JSONResponse(content={"error": "Bestemming en Streek is albei verpligtend"}, status_code=400)
+    if "," in naam:
+        # A trip's bestemming column uses commas to list several destinations.
+        return JSONResponse(content={"error": "Bestemming mag nie 'n komma bevat nie"}, status_code=400)
+    conn = get_db()
+    ensure_bestemming_streek_table(conn)
+    matches = _find_bestemming_rows(conn, naam)
+    with_streek = next((m for m in matches if (m["streek"] or "").strip()), None)
+    if with_streek:
+        conn.close()
+        return JSONResponse(
+            content={"error": f"'{with_streek['bestemmingNaam']}' bestaan reeds (streek: {with_streek['streek']})"},
+            status_code=409,
+        )
+    if matches:
+        # Known destination that never had a streek: fill it in.
+        naam = matches[0]["bestemmingNaam"]
+        for m in matches:
+            conn.execute("UPDATE BestemmingStreek SET streek = ? WHERE bestemmingNaam = ?", (streek, m["bestemmingNaam"]))
+    else:
+        conn.execute("INSERT INTO BestemmingStreek (bestemmingNaam, streek) VALUES (?, ?)", (naam, streek))
+    conn.commit()
+    conn.close()
+    return {"status": "success", "bestemmingNaam": naam, "streek": streek}
+
+
+@app.post("/bestemmings/streek")
+async def set_bestemming_streek(request: Request):
+    """Change the streek of one destination (creating the destination if it
+    isn't in BestemmingStreek yet). Because a trip's streek is looked up from
+    its bestemming, this updates every trip that uses that destination."""
+    body = await request.json()
+    naam = " ".join(str(body.get("bestemmingNaam") or "").split())
+    streek = " ".join(str(body.get("streek") or "").split())
+    if not naam or "," in naam:
+        return JSONResponse(content={"error": "Ongeldige bestemming"}, status_code=400)
+    conn = get_db()
+    ensure_bestemming_streek_table(conn)
+    matches = _find_bestemming_rows(conn, naam)
+    if matches:
+        # Update every row that is the same destination (ignoring case and
+        # whitespace) so no stale duplicate keeps feeding the old streek.
+        naam = matches[0]["bestemmingNaam"]
+        for m in matches:
+            conn.execute("UPDATE BestemmingStreek SET streek = ? WHERE bestemmingNaam = ?", (streek, m["bestemmingNaam"]))
+    else:
+        conn.execute("INSERT INTO BestemmingStreek (bestemmingNaam, streek) VALUES (?, ?)", (naam, streek))
+    conn.commit()
+    conn.close()
+    return {"status": "success", "bestemmingNaam": naam, "streek": streek}
 
 
 # ── Holiday markers for the PERIODE calendar ─────────────────────────────
@@ -807,6 +910,7 @@ def dagboek_history_entries():
     conn = get_db()
     ensure_kwotasie_table(conn)
     ensure_bestemming_streek_table(conn)
+    streek_map = _streek_map(conn)
     rows = conn.execute("""
         SELECT id, datum, bus, klient AS klientID, bestemming, tydOplaai, tydTerug,
                bedrag, bestuurder, opmerkings, finaliseerDatum, seater, dateCreated, tipeTrip,
@@ -817,7 +921,7 @@ def dagboek_history_entries():
     results = []
     for r in rows:
         d = dict(r)
-        d["streek"] = _resolve_streek(conn, d["bestemming"])
+        d["streek"] = _resolve_streek(conn, d["bestemming"], streek_map)
         results.append(d)
     conn.close()
     return results
@@ -861,7 +965,7 @@ async def dagboek_create_entry(request: Request):
         body.get("klientID") or "",
         body.get("bestemming") or "",
         body.get("tydOplaai") or "",
-        body.get("tydTerug") or "",
+        (ONE_WAY_LABEL if trip_type == ONE_WAY_TYPE else (body.get("tydTerug") or "")),
         _parse_float(body.get("bedrag")),
         body.get("bestuurder") or "",
         body.get("opmerkings") or "",
@@ -927,6 +1031,14 @@ async def dagboek_update_entry(trip_id: int, request: Request):
     conn = get_db()
     ensure_kwotasie_table(conn)
     conn.execute(f"UPDATE Kwotasie SET {column} = ? WHERE id = ?", (value, trip_id))
+    if field == "tipeTrip":
+        if value == ONE_WAY_TYPE:
+            # One-way trips have no return time: Tyd Terug becomes the text "One-Way".
+            conn.execute("UPDATE Kwotasie SET tydTerug = ? WHERE id = ?", (ONE_WAY_LABEL, trip_id))
+        else:
+            # Switching away from one-way: drop the placeholder text so it
+            # doesn't linger in what is otherwise a time column.
+            conn.execute("UPDATE Kwotasie SET tydTerug = '' WHERE id = ? AND tydTerug = ?", (trip_id, ONE_WAY_LABEL))
     conn.commit()
     conn.close()
     return {"status": "success"}
@@ -942,6 +1054,8 @@ def _canonical_trip_type(value):
     compact = text.lower().replace("_", " ").replace("-", " ").replace("/", " ")
     aliases = {
         "dag retoer": "Dag-Retoer",
+        "dag eenrigting": "Dag-EenRigting",
+        "dag een rigting": "Dag-EenRigting",
         "toer retoer": "Toer-Retoer",
         "toer oorslaap": "Toer-Oorslaap",
     }
@@ -1920,10 +2034,24 @@ def dagboek_export(year: int, month: int, day: int = 0):
         SELECT id, datum, bus, klient, bestemming, tydOplaai, tydTerug,
             bestuurder, opmerkings, seater, tipeTrip, trailer, datumTerug
         FROM Kwotasie
-        WHERE aanvaar = 1 AND substr(datum, 1, 7) = ?
+        WHERE aanvaar = 1 AND COALESCE(gekanselleer, 0) = 0
+          AND substr(datum, 1, 7) = ?
         ORDER BY datum, id
     """, (month_str,)).fetchall()
     bus_rows = conn.execute("SELECT BusNames, Seater FROM BusName").fetchall()
+    unavailable_names = []
+    if day:
+        # Drivers picked under ONBESKIKBAAR for this day (manual selections).
+        ensure_driver_unavailable_table(conn)
+        day_key = f"{year:04d}-{month:02d}-{day:02d}"
+        unavailable_names = [
+            (u["driverName"] or "").strip()
+            for u in conn.execute(
+                "SELECT driverName FROM DriverUnavailable WHERE datum = ? ORDER BY driverName",
+                (day_key,),
+            ).fetchall()
+            if (u["driverName"] or "").strip()
+        ]
     conn.close()
 
     seater_map = {}
@@ -1957,11 +2085,14 @@ def dagboek_export(year: int, month: int, day: int = 0):
         bus = (r.get("bus") or "").strip()
         r["_export_seater"] = ((r.get("seater") or "").replace("Seater", "").strip() or (seater_map.get(bus) or "").replace("Seater", "").strip())
         r["_export_pickup_time"] = parse_time_value(r.get("tydOplaai") or "")
-        r["_export_return_time"] = (
-            parse_date_value(r.get("datumTerug") or "")
-            if is_pending_multi_day_return(r)
-            else parse_time_value(r.get("tydTerug") or "")
-        )
+        if _canonical_trip_type(r.get("tipeTrip")) == ONE_WAY_TYPE:
+            r["_export_return_time"] = ONE_WAY_LABEL
+        else:
+            r["_export_return_time"] = (
+                parse_date_value(r.get("datumTerug") or "")
+                if is_pending_multi_day_return(r)
+                else parse_time_value(r.get("tydTerug") or "")
+            )
         r["_export_trailer"] = "Yes" if _is_truthy_flag(r.get("trailer")) else " "
 
     # ── Styles ────────────────────────────────────────────────────────────
@@ -2011,7 +2142,7 @@ def dagboek_export(year: int, month: int, day: int = 0):
             value = value.upper()
         c           = ws.cell(row=row, column=col, value=value)
         c.font      = Font(name="Arial", size=20, bold=bold)
-        c.alignment = Alignment(horizontal=align, vertical="center")
+        c.alignment = Alignment(horizontal=align, vertical="center", wrap_text=True)
         c.border    = BORDER
         c.fill      = WHITE_FILL
         # Real datetime.time values (pickup/return times) get an Excel
@@ -2043,10 +2174,25 @@ def dagboek_export(year: int, month: int, day: int = 0):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
     # ── Row 1: Title ──────────────────────────────────────────────────────
+    title_text  = "DAY PROGRAM"
+    if unavailable_names:
+        title_text += " - " + ", ".join(unavailable_names)
+    # Shrink the font a little when the names make the title long.
+    title_size  = 26 if len(title_text) <= 30 else max(14, int(26 * 30 / len(title_text)))
     ws.merge_cells(MERGE_RANGE.format(r=1))
-    c           = ws.cell(row=1, column=1, value="DAY PROGRAM")
-    c.font      = Font(name="Arial", bold=True, size=26)
-    c.alignment = Alignment(horizontal="center", vertical="center")
+    c = ws.cell(row=1, column=1, value=title_text)
+    c.font = Font(name="Arial", bold=True, color="000000", size=title_size)
+    if unavailable_names:
+        from openpyxl.cell.rich_text import CellRichText, InlineFont, TextBlock
+
+        c.value = CellRichText(
+            "DAY PROGRAM - ",
+            TextBlock(
+                InlineFont(rFont="Arial", sz=title_size, b=True, color="FFFF0000"),
+                ", ".join(unavailable_names),
+            ),
+        )
+    c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False)
     ws.row_dimensions[1].height = 54.8
 
     # ── Row 2: Date / day-of-week bar ────────────────────────────────────
@@ -2081,7 +2227,7 @@ def dagboek_export(year: int, month: int, day: int = 0):
     light_days  = {"MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"}
     txt_color   = "1F3864" if day_of_week in light_days else "1F3864"
     d2.font     = Font(name="Arial", bold=True, color=txt_color, size=24)
-    d2.alignment= Alignment(horizontal="center", vertical="center")
+    d2.alignment= Alignment(horizontal="center", vertical="center", wrap_text=True)
     ws.row_dimensions[2].height = 57.8
 
     # ── Row 3: Column headers ─────────────────────────────────────────────
